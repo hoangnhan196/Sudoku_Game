@@ -1,3 +1,7 @@
+# Sudoku_Game
+Network-Programming-Project
+
+
 Member group 8
 
 Number	Name	              Student ID	     Github ID
@@ -9,5 +13,4 @@ Number	Name	              Student ID	     Github ID
 6.	      Trần Hoàng Nhân	    094206002745	   hoangnhan196,
 
 
-# Sudoku_Game
-Network-Programming-Project
+
