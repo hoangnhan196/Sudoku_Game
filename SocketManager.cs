@@ -15,6 +15,7 @@ namespace SudokuServer.Network
 {
     public class ClientSession
     {
+        private bool _isDisposed = false;
         public string Id { get; set; } = Guid.NewGuid().ToString();
         public TcpClient Client { get; }
         public NetworkStream Stream { get; }
@@ -36,34 +37,42 @@ namespace SudokuServer.Network
 
         public async Task SendAsync(object obj)
         {
-            await _writeLock.WaitAsync();
             try
             {
-                string json = JsonSerializer.Serialize(obj);
-                await Writer.WriteLineAsync(json);
+                if (Cts.IsCancellationRequested || _isDisposed) return;
+
+                await _writeLock.WaitAsync(Cts.Token);
+                try
+                {
+                    string json = JsonSerializer.Serialize(obj);
+                    await Writer.WriteLineAsync(json);
+                }
+                finally
+                {
+                    _writeLock.Release();
+                }
             }
             catch
             {
-                // Connection likely lost
-            }
-            finally
-            {
-                _writeLock.Release();
+                // Connection likely lost or session disconnected/disposed
             }
         }
 
         public void Disconnect()
         {
+            if (_isDisposed) return;
+            _isDisposed = true;
             try
             {
                 Cts.Cancel();
-                Reader.Dispose();
-                Writer.Dispose();
-                Stream.Dispose();
-                Client.Close();
-                _writeLock.Dispose();
             }
             catch { }
+            try { Reader.Dispose(); } catch { }
+            try { Writer.Dispose(); } catch { }
+            try { Stream.Dispose(); } catch { }
+            try { Client.Close(); } catch { }
+            try { _writeLock.Dispose(); } catch { }
+            try { Cts.Dispose(); } catch { }
         }
     }
 
@@ -74,17 +83,40 @@ namespace SudokuServer.Network
         private readonly ConcurrentDictionary<string, ClientSession> _clients = new();
         private readonly SudokuEngine _engine = new();
         private bool _isGameActive = false;
+        private readonly object _gameLock = new object();
 
         public event Action<string>? OnLog;
         public event Action? OnClientListChanged;
         public event Action? OnGameStateChanged;
 
         public bool IsRunning { get; private set; } = false;
-        public bool IsGameActive => _isGameActive;
+        public bool IsGameActive
+        {
+            get
+            {
+                lock (_gameLock)
+                {
+                    return _isGameActive;
+                }
+            }
+        }
         public int ConnectedClientsCount => _clients.Count;
 
-        public int[,] GetSolutionBoard() => _engine.SolutionBoard;
-        public int[,] GetPlayerBoard() => _engine.PlayerBoard;
+        public int[,] GetSolutionBoard()
+        {
+            lock (_gameLock)
+            {
+                return (int[,])_engine.SolutionBoard.Clone();
+            }
+        }
+
+        public int[,] GetPlayerBoard()
+        {
+            lock (_gameLock)
+            {
+                return (int[,])_engine.PlayerBoard.Clone();
+            }
+        }
 
         public List<ClientSession> GetClientsList() => _clients.Values.ToList();
 
@@ -105,7 +137,15 @@ namespace SudokuServer.Network
             catch (Exception ex)
             {
                 Log($"Error starting server: {ex.Message}");
-                Stop();
+                
+                try { _listener.Stop(); } catch { }
+                _listener = null;
+
+                try { _cts.Cancel(); } catch { }
+                try { _cts.Dispose(); } catch { }
+                _cts = null;
+
+                IsRunning = false;
                 throw;
             }
         }
@@ -115,7 +155,10 @@ namespace SudokuServer.Network
             if (!IsRunning) return;
 
             Log("Stopping server...");
-            _isGameActive = false;
+            lock (_gameLock)
+            {
+                _isGameActive = false;
+            }
 
             _cts?.Cancel();
             _listener?.Stop();
@@ -175,7 +218,10 @@ namespace SudokuServer.Network
             }
             catch (Exception ex)
             {
-                Log($"Session error for {session.Username} ({ipAddress}): {ex.Message}");
+                if (!(ex is OperationCanceledException || ex is ObjectDisposedException || ex is IOException))
+                {
+                    Log($"Session error for {session.Username} ({ipAddress}): {ex.Message}");
+                }
             }
             finally
             {
@@ -195,6 +241,13 @@ namespace SudokuServer.Network
             {
                 var msg = JsonSerializer.Deserialize<NetworkMessage>(messageJson);
                 if (msg == null) return;
+
+                // Validate that the client has connected before processing other commands
+                if (msg.Type != "CLIENT_CONNECT" && !_clients.ContainsKey(session.Id))
+                {
+                    Log($"Warning: Received '{msg.Type}' from unregistered client '{session.Username}' ({session.Id}).");
+                    return;
+                }
 
                 switch (msg.Type)
                 {
@@ -218,12 +271,23 @@ namespace SudokuServer.Network
                         OnClientListChanged?.Invoke();
 
                         // If game is active, send the current board to the new player
-                        if (_isGameActive)
+                        bool isGameActiveCopy;
+                        int[][]? boardJagged = null;
+                        lock (_gameLock)
+                        {
+                            isGameActiveCopy = _isGameActive;
+                            if (isGameActiveCopy)
+                            {
+                                boardJagged = ConvertToJagged(_engine.PlayerBoard);
+                            }
+                        }
+
+                        if (isGameActiveCopy && boardJagged != null)
                         {
                             await session.SendAsync(new NetworkMessage
                             {
                                 Type = "SERVER_START_GAME",
-                                Board = ConvertToJagged(_engine.PlayerBoard)
+                                Board = boardJagged
                             });
                         }
                         break;
@@ -239,7 +303,13 @@ namespace SudokuServer.Network
                         break;
 
                     case "CLIENT_MOVE":
-                        if (!_isGameActive)
+                        bool isGameActiveCheck;
+                        lock (_gameLock)
+                        {
+                            isGameActiveCheck = _isGameActive;
+                        }
+
+                        if (!isGameActiveCheck)
                         {
                             Log($"Ignored move from '{session.Username}' because no active game.");
                             break;
@@ -251,27 +321,48 @@ namespace SudokuServer.Network
                             int c = msg.Col.Value;
                             int val = msg.Value.Value;
 
-                            // Validate board constraints
                             if (r >= 0 && r < 9 && c >= 0 && c < 9)
                             {
-                                // Check if cell is already solved in the player board
-                                if (_engine.PlayerBoard[r, c] == _engine.SolutionBoard[r, c])
+                                bool isCorrect = false;
+                                bool alreadySolved = false;
+                                bool isFinished = false;
+
+                                lock (_gameLock)
                                 {
-                                    // Already filled correctly
-                                    break;
+                                    // Check again inside the lock
+                                    if (!_isGameActive)
+                                        break;
+
+                                    if (_engine.PlayerBoard[r, c] == _engine.SolutionBoard[r, c])
+                                    {
+                                        alreadySolved = true;
+                                    }
+                                    else
+                                    {
+                                        isCorrect = _engine.CheckMove(r, c, val);
+                                        if (isCorrect)
+                                        {
+                                            _engine.ApplyMove(r, c, val);
+                                            session.Score += 10;
+                                            Log($"'{session.Username}' placed {val} at ({r}, {c}) - CORRECT (+10 pts)");
+                                        }
+                                        else
+                                        {
+                                            session.Score = Math.Max(0, session.Score - 5); // Prevent negative score
+                                            Log($"'{session.Username}' placed {val} at ({r}, {c}) - INCORRECT (-5 pts)");
+                                        }
+
+                                        isFinished = _engine.IsGameFinished();
+                                        if (isFinished)
+                                        {
+                                            _isGameActive = false;
+                                        }
+                                    }
                                 }
 
-                                bool isCorrect = _engine.CheckMove(r, c, val);
-                                if (isCorrect)
+                                if (alreadySolved)
                                 {
-                                    _engine.ApplyMove(r, c, val);
-                                    session.Score += 10;
-                                    Log($"'{session.Username}' placed {val} at ({r}, {c}) - CORRECT (+10 pts)");
-                                }
-                                else
-                                {
-                                    session.Score = Math.Max(0, session.Score - 5); // Prevent negative score
-                                    Log($"'{session.Username}' placed {val} at ({r}, {c}) - INCORRECT (-5 pts)");
+                                    break;
                                 }
 
                                 // Broadcast move update
@@ -290,7 +381,7 @@ namespace SudokuServer.Network
                                 OnGameStateChanged?.Invoke();
 
                                 // Check if game finished
-                                if (_engine.IsGameFinished())
+                                if (isFinished)
                                 {
                                     EndGame();
                                 }
@@ -322,20 +413,26 @@ namespace SudokuServer.Network
         {
             if (!IsRunning) return;
 
-            Log($"Starting a new game. Difficulty: removing {cellsToRemove} cells.");
-            _engine.GenerateNewGame(cellsToRemove);
-            _isGameActive = true;
-
-            // Reset player scores
-            foreach (var client in _clients.Values)
+            int[][] boardJagged;
+            lock (_gameLock)
             {
-                client.Score = 0;
+                Log($"Starting a new game. Difficulty: removing {cellsToRemove} cells.");
+                _engine.GenerateNewGame(cellsToRemove);
+                _isGameActive = true;
+
+                // Reset player scores
+                foreach (var client in _clients.Values)
+                {
+                    client.Score = 0;
+                }
+
+                boardJagged = ConvertToJagged(_engine.PlayerBoard);
             }
 
             Broadcast(new NetworkMessage
             {
                 Type = "SERVER_START_GAME",
-                Board = ConvertToJagged(_engine.PlayerBoard)
+                Board = boardJagged
             });
 
             BroadcastPlayerList();
@@ -344,7 +441,10 @@ namespace SudokuServer.Network
 
         private void EndGame()
         {
-            _isGameActive = false;
+            lock (_gameLock)
+            {
+                _isGameActive = false;
+            }
             Log("Sudoku solved! Game Over.");
 
             // Find winner (highest score)
