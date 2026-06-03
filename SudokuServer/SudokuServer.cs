@@ -63,7 +63,7 @@ namespace SudokuServer
         {
             if (_server == null || !_server.IsRunning) return;
 
-            int cellsToRemove = 52; // Default Hard
+            int cellsToRemove = 42; // Default Medium
             int index = cmbDifficulty.SelectedIndex;
             if (index == 0) cellsToRemove = 30; // Easy
             else if (index == 1) cellsToRemove = 42; // Medium
