@@ -29,21 +29,25 @@ namespace SudokuServer
         {
             if (_server == null) return;
 
-            if (int.TryParse(txtPort.Text, out int port))
+            int port = 0;
+            if (!string.IsNullOrWhiteSpace(txtPort.Text))
             {
-                try
+                if (!int.TryParse(txtPort.Text, out port) || port < 0 || port > 99999)
                 {
-                    _server.Start(port);
-                    UpdateUIState(true);
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"Failed to start server: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show("Please enter a valid port number (0-99999) or leave it empty for automatic assignment.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
                 }
             }
-            else
+
+            try
             {
-                MessageBox.Show("Please enter a valid port number.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                _server.Start(port);
+                txtPort.Text = _server.Port.ToString();
+                UpdateUIState(true);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Khởi động máy chủ thất bại: {ex.Message}", "Lỗi! vui lòng thử lại", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -59,9 +63,13 @@ namespace SudokuServer
         {
             if (_server == null || !_server.IsRunning) return;
 
-            int cellsToRemove = 40; // Default Medium
-            if (cmbDifficulty.SelectedIndex == 0) cellsToRemove = 30; // Easy
-            else if (cmbDifficulty.SelectedIndex == 2) cellsToRemove = 50; // Hard
+            int cellsToRemove = 42; // Default Medium
+            int index = cmbDifficulty.SelectedIndex;
+            if (index == 0) cellsToRemove = 30; // Easy
+            else if (index == 1) cellsToRemove = 42; // Medium
+            else if (index == 2) cellsToRemove = 52; // Hard
+            else if (index == 3) cellsToRemove = 62; // Expert
+            else if (index == 4) cellsToRemove = 72; // Evil
 
             _server.StartGame(cellsToRemove);
         }

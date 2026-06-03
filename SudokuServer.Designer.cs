@@ -82,15 +82,17 @@ namespace SudokuServer
             // 
             // cmbDifficulty
             // 
-            this.cmbDifficulty.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(56)))));
+            this.cmbDifficulty.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(55)))), ((int)(((byte)(60)))));
             this.cmbDifficulty.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.cmbDifficulty.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
             this.cmbDifficulty.ForeColor = System.Drawing.Color.White;
             this.cmbDifficulty.FormattingEnabled = true;
             this.cmbDifficulty.Items.AddRange(new object[] {
             "Easy (30 blank cells)",
-            "Medium (40 blank cells)",
-            "Hard (50 blank cells)"});
+            "Medium (42 blank cells)",
+            "Hard (52 blank cells)",
+            "Expert (62 blank cells)",
+            "Evil (75 blank cells)"});
             this.cmbDifficulty.Location = new System.Drawing.Point(460, 22);
             this.cmbDifficulty.Name = "cmbDifficulty";
             this.cmbDifficulty.Size = new System.Drawing.Size(160, 25);
@@ -164,7 +166,7 @@ namespace SudokuServer
             this.txtPort.Name = "txtPort";
             this.txtPort.Size = new System.Drawing.Size(80, 25);
             this.txtPort.TabIndex = 1;
-            this.txtPort.Text = "8888";
+            this.txtPort.Text = "";
             // 
             // lblPort
             // 
