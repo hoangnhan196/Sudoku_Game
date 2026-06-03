@@ -1,4 +1,5 @@
 using SudokuServer.Game;
+using SudokuServer.Models;
 using System;
 using System.IO;
 using System.Collections.Concurrent;
@@ -80,10 +81,8 @@ namespace SudokuServer.Network
     {
         private TcpListener? _listener;
         private CancellationTokenSource? _cts;
-        private readonly ConcurrentDictionary<string, ClientSession> _clients = new();
-        private readonly SudokuEngine _engine = new();
-        private bool _isGameActive = false;
-        private readonly object _gameLock = new object();
+        private readonly ConcurrentDictionary<string, Player> _players = new();
+        private readonly ConcurrentDictionary<string, Room> _rooms = new();
 
         public event Action<string>? OnLog;
         public event Action? OnClientListChanged;
@@ -95,31 +94,47 @@ namespace SudokuServer.Network
         {
             get
             {
-                lock (_gameLock)
+                if (_rooms.TryGetValue("default", out var room))
                 {
-                    return _isGameActive;
+                    return room.IsGameActive;
                 }
+                return false;
             }
         }
-        public int ConnectedClientsCount => _clients.Count;
+        public int ConnectedClientsCount => _players.Count;
+
+        public SocketManager()
+        {
+            // Initialize default lobby room
+            var defaultRoom = new Room("default", "Default Room");
+            _rooms.TryAdd(defaultRoom.Id, defaultRoom);
+        }
 
         public int[,] GetSolutionBoard()
         {
-            lock (_gameLock)
+            if (_rooms.TryGetValue("default", out var room))
             {
-                return (int[,])_engine.SolutionBoard.Clone();
+                lock (room.GameLock)
+                {
+                    return (int[,])room.Engine.SolutionBoard.Clone();
+                }
             }
+            return new int[9, 9];
         }
 
         public int[,] GetPlayerBoard()
         {
-            lock (_gameLock)
+            if (_rooms.TryGetValue("default", out var room))
             {
-                return (int[,])_engine.PlayerBoard.Clone();
+                lock (room.GameLock)
+                {
+                    return (int[,])room.Engine.PlayerBoard.Clone();
+                }
             }
+            return new int[9, 9];
         }
 
-        public List<ClientSession> GetClientsList() => _clients.Values.ToList();
+        public List<ClientSession> GetClientsList() => _players.Values.Select(p => p.Session).ToList();
 
         public void Start(int port)
         {
@@ -158,19 +173,26 @@ namespace SudokuServer.Network
             if (!IsRunning) return;
 
             Log("Stopping server...");
-            lock (_gameLock)
+            foreach (var room in _rooms.Values)
             {
-                _isGameActive = false;
+                lock (room.GameLock)
+                {
+                    room.IsGameActive = false;
+                }
             }
 
             _cts?.Cancel();
             _listener?.Stop();
 
-            foreach (var client in _clients.Values)
+            foreach (var player in _players.Values)
             {
-                client.Disconnect();
+                player.Session.Disconnect();
             }
-            _clients.Clear();
+            _players.Clear();
+
+            _rooms.Clear();
+            var defaultRoom = new Room("default", "Default Room");
+            _rooms.TryAdd(defaultRoom.Id, defaultRoom);
 
             IsRunning = false;
             Port = 0;
@@ -230,10 +252,14 @@ namespace SudokuServer.Network
             finally
             {
                 session.Disconnect();
-                if (_clients.TryRemove(session.Id, out _))
+                if (_players.TryRemove(session.Id, out var player))
                 {
-                    Log($"Player {session.Username} ({ipAddress}) disconnected.");
-                    BroadcastPlayerList();
+                    Log($"Player {player.Username} ({ipAddress}) disconnected.");
+                    if (player.RoomId != null && _rooms.TryGetValue(player.RoomId, out var room))
+                    {
+                        room.RemovePlayer(player.Id);
+                        room.BroadcastPlayerList();
+                    }
                     OnClientListChanged?.Invoke();
                 }
             }
@@ -247,7 +273,7 @@ namespace SudokuServer.Network
                 if (msg == null) return;
 
                 // Validate that the client has connected before processing other commands
-                if (msg.Type != "CLIENT_CONNECT" && !_clients.ContainsKey(session.Id))
+                if (msg.Type != "CLIENT_CONNECT" && !_players.ContainsKey(session.Id))
                 {
                     Log($"Warning: Received '{msg.Type}' from unregistered client '{session.Username}' ({session.Id}).");
                     return;
@@ -256,172 +282,365 @@ namespace SudokuServer.Network
                 switch (msg.Type)
                 {
                     case "CLIENT_CONNECT":
-                        session.Username = string.IsNullOrEmpty(msg.Username) ? "Guest" : msg.Username;
-
-                        _clients[session.Id] = session;
-                        Log($"Player '{session.Username}' joined the lobby.");
-
-                        // Send connect confirmation
-                        await session.SendAsync(new NetworkMessage
                         {
-                            Type = "SERVER_CONNECT_RESPONSE",
-                            Success = true,
-                            PlayerId = session.Id,
-                            Message = "Successfully connected to server."
-                        });
+                            session.Username = string.IsNullOrEmpty(msg.Username) ? "Guest" : msg.Username;
 
-                        // Broadcast updated player list
-                        BroadcastPlayerList();
-                        OnClientListChanged?.Invoke();
+                            Player newPlayer = new Player(session.Id, session.Username, session);
+                            _players[session.Id] = newPlayer;
+                            Log($"Player '{newPlayer.Username}' joined the lobby.");
 
-                        // If game is active, send the current board to the new player
-                        bool isGameActiveCopy;
-                        int[][]? boardJagged = null;
-                        lock (_gameLock)
-                        {
-                            isGameActiveCopy = _isGameActive;
-                            if (isGameActiveCopy)
+                            // Join default room
+                            if (_rooms.TryGetValue("default", out var defaultRoom))
                             {
-                                boardJagged = ConvertToJagged(_engine.PlayerBoard);
+                                defaultRoom.AddPlayer(newPlayer);
                             }
-                        }
 
-                        if (isGameActiveCopy && boardJagged != null)
-                        {
+                            // Send connect confirmation
                             await session.SendAsync(new NetworkMessage
                             {
-                                Type = "SERVER_START_GAME",
-                                Board = boardJagged
+                                Type = "SERVER_CONNECT_RESPONSE",
+                                Success = true,
+                                PlayerId = session.Id,
+                                Message = "Successfully connected to server."
                             });
-                        }
-                        break;
 
-                    case "CLIENT_READY":
-                        if (msg.IsReady.HasValue)
-                        {
-                            session.IsReady = msg.IsReady.Value;
-                            Log($"Player '{session.Username}' is {(session.IsReady ? "READY" : "NOT READY")}");
-                            BroadcastPlayerList();
+                            // Broadcast updated player list in the player's room
+                            if (newPlayer.RoomId != null && _rooms.TryGetValue(newPlayer.RoomId, out var room))
+                            {
+                                room.BroadcastPlayerList();
+                            }
                             OnClientListChanged?.Invoke();
-                        }
-                        break;
 
-                    case "CLIENT_MOVE":
-                        bool isGameActiveCheck;
-                        lock (_gameLock)
-                        {
-                            isGameActiveCheck = _isGameActive;
-                        }
+                            // If game is active, send the current board to the new player
+                            if (newPlayer.RoomId != null && _rooms.TryGetValue(newPlayer.RoomId, out var rRoom))
+                            {
+                                bool isGameActiveCopy;
+                                int[][]? boardJagged = null;
+                                lock (rRoom.GameLock)
+                                {
+                                    isGameActiveCopy = rRoom.IsGameActive;
+                                    if (isGameActiveCopy)
+                                    {
+                                        boardJagged = ConvertToJagged(rRoom.Engine.PlayerBoard);
+                                    }
+                                }
 
-                        if (!isGameActiveCheck)
-                        {
-                            Log($"Ignored move from '{session.Username}' because no active game.");
+                                if (isGameActiveCopy && boardJagged != null)
+                                {
+                                    await session.SendAsync(new NetworkMessage
+                                    {
+                                        Type = "SERVER_START_GAME",
+                                        Board = boardJagged
+                                    });
+                                }
+                            }
                             break;
                         }
 
-                        if (msg.Row.HasValue && msg.Col.HasValue && msg.Value.HasValue)
+                    case "CLIENT_READY":
                         {
-                            int r = msg.Row.Value;
-                            int c = msg.Col.Value;
-                            int val = msg.Value.Value;
-
-                            if (r >= 0 && r < 9 && c >= 0 && c < 9)
+                            if (msg.IsReady.HasValue)
                             {
-                                bool isCorrect = false;
-                                bool alreadySolved = false;
-                                bool isFinished = false;
-                                bool shouldKick = false;
-
-                                lock (_gameLock)
+                                if (_players.TryGetValue(session.Id, out var player))
                                 {
-                                    // Check again inside the lock
-                                    if (!_isGameActive)
-                                        break;
-
-                                    if (_engine.PlayerBoard[r, c] == _engine.SolutionBoard[r, c])
+                                    player.IsReady = msg.IsReady.Value;
+                                    Log($"Player '{player.Username}' is {(player.IsReady ? "READY" : "NOT READY")}");
+                                    if (player.RoomId != null && _rooms.TryGetValue(player.RoomId, out var room))
                                     {
-                                        alreadySolved = true;
+                                        room.BroadcastPlayerList();
                                     }
-                                    else
+                                    OnClientListChanged?.Invoke();
+                                }
+                            }
+                            break;
+                        }
+
+                    case "CLIENT_MOVE":
+                        {
+                            if (!_players.TryGetValue(session.Id, out var movingPlayer) || movingPlayer.RoomId == null || !_rooms.TryGetValue(movingPlayer.RoomId, out var playRoom))
+                            {
+                                break;
+                            }
+
+                            bool isGameActiveCheck;
+                            lock (playRoom.GameLock)
+                            {
+                                isGameActiveCheck = playRoom.IsGameActive;
+                            }
+
+                            if (!isGameActiveCheck)
+                            {
+                                Log($"Ignored move from '{movingPlayer.Username}' because no active game in room.");
+                                break;
+                            }
+
+                            if (msg.Row.HasValue && msg.Col.HasValue && msg.Value.HasValue)
+                            {
+                                int r = msg.Row.Value;
+                                int c = msg.Col.Value;
+                                int val = msg.Value.Value;
+
+                                if (r >= 0 && r < 9 && c >= 0 && c < 9)
+                                {
+                                    bool isCorrect = false;
+                                    bool alreadySolved = false;
+                                    bool isFinished = false;
+                                    bool shouldKick = false;
+
+                                    lock (playRoom.GameLock)
                                     {
-                                        isCorrect = _engine.CheckMove(r, c, val);
-                                        if (isCorrect)
+                                        // Check again inside the lock
+                                        if (!playRoom.IsGameActive)
+                                            break;
+
+                                        if (playRoom.Engine.PlayerBoard[r, c] == playRoom.Engine.SolutionBoard[r, c])
                                         {
-                                            _engine.ApplyMove(r, c, val);
-                                            session.Score += 10;
-                                            Log($"'{session.Username}' placed {val} at ({r}, {c}) - CORRECT (+10 pts)");
+                                            alreadySolved = true;
                                         }
                                         else
                                         {
-                                            session.Score = Math.Max(0, session.Score - 5); // Prevent negative score
-                                            Log($"'{session.Username}' placed {val} at ({r}, {c}) - INCORRECT (-5 pts)");
-                                            if (session.Score == 0)
+                                            isCorrect = playRoom.Engine.CheckMove(r, c, val);
+                                            if (isCorrect)
                                             {
-                                                shouldKick = true;
+                                                playRoom.Engine.ApplyMove(r, c, val);
+                                                movingPlayer.Score += 10;
+                                                Log($"'{movingPlayer.Username}' placed {val} at ({r}, {c}) - CORRECT (+10 pts) in Room '{playRoom.Name}'");
+                                            }
+                                            else
+                                            {
+                                                movingPlayer.Score = Math.Max(0, movingPlayer.Score - 5); // Prevent negative score
+                                                Log($"'{movingPlayer.Username}' placed {val} at ({r}, {c}) - INCORRECT (-5 pts) in Room '{playRoom.Name}'");
+                                                if (movingPlayer.Score == 0)
+                                                {
+                                                    shouldKick = true;
+                                                }
+                                            }
+
+                                            isFinished = playRoom.Engine.IsGameFinished();
+                                            if (isFinished)
+                                            {
+                                                playRoom.IsGameActive = false;
                                             }
                                         }
+                                    }
 
-                                        isFinished = _engine.IsGameFinished();
-                                        if (isFinished)
+                                    if (alreadySolved)
+                                    {
+                                        break;
+                                    }
+
+                                    // Broadcast move update to the room
+                                    playRoom.Broadcast(new NetworkMessage
+                                    {
+                                        Type = "SERVER_MOVE_UPDATE",
+                                        Row = r,
+                                        Col = c,
+                                        Value = val,
+                                        PlayerId = movingPlayer.Id,
+                                        Username = movingPlayer.Username,
+                                        Score = movingPlayer.Score,
+                                        Correct = isCorrect
+                                    });
+
+                                    OnGameStateChanged?.Invoke();
+
+                                    // Check if game finished
+                                    if (isFinished)
+                                    {
+                                        playRoom.EndGame();
+                                        OnGameStateChanged?.Invoke();
+                                    }
+
+                                    if (shouldKick)
+                                    {
+                                        playRoom.Broadcast(new NetworkMessage
                                         {
-                                            _isGameActive = false;
-                                        }
+                                            Type = "SERVER_CHAT",
+                                            Username = "System",
+                                            ChatText = $"Player '{movingPlayer.Username}' was kicked for reaching 0 points!"
+                                        });
+                                        Log($"Player '{movingPlayer.Username}' was kicked for reaching 0 points.");
+                                        movingPlayer.Session.Disconnect();
                                     }
                                 }
-
-                                if (alreadySolved)
-                                {
-                                    break;
-                                }
-
-                                // Broadcast move update
-                                Broadcast(new NetworkMessage
-                                {
-                                    Type = "SERVER_MOVE_UPDATE",
-                                    Row = r,
-                                    Col = c,
-                                    Value = val,
-                                    PlayerId = session.Id,
-                                    Username = session.Username,
-                                    Score = session.Score,
-                                    Correct = isCorrect
-                                });
-
-                                OnGameStateChanged?.Invoke();
-
-                                // Check if game finished
-                                if (isFinished)
-                                {
-                                    EndGame();
-                                }
-
-                                if (shouldKick)
-                                {
-                                    Broadcast(new NetworkMessage
-                                    {
-                                        Type = "SERVER_CHAT",
-                                        Username = "System",
-                                        ChatText = $"Player '{session.Username}' was kicked for reaching 0 points!"
-                                    });
-                                    Log($"Player '{session.Username}' was kicked for reaching 0 points.");
-                                    session.Disconnect();
-                                }
                             }
+                            break;
                         }
-                        break;
 
                     case "CLIENT_CHAT":
-                        if (!string.IsNullOrEmpty(msg.ChatText))
                         {
-                            Log($"[CHAT] {session.Username}: {msg.ChatText}");
-                            Broadcast(new NetworkMessage
+                            if (!string.IsNullOrEmpty(msg.ChatText))
                             {
-                                Type = "SERVER_CHAT",
-                                Username = session.Username,
-                                ChatText = msg.ChatText
-                            });
+                                if (_players.TryGetValue(session.Id, out var chatPlayer))
+                                {
+                                    Log($"[CHAT][Room: {chatPlayer.RoomId}] {chatPlayer.Username}: {msg.ChatText}");
+                                    if (chatPlayer.RoomId != null && _rooms.TryGetValue(chatPlayer.RoomId, out var chatRoom))
+                                    {
+                                        chatRoom.Broadcast(new NetworkMessage
+                                        {
+                                            Type = "SERVER_CHAT",
+                                            Username = chatPlayer.Username,
+                                            ChatText = msg.ChatText
+                                        });
+                                    }
+                                }
+                            }
+                            break;
                         }
-                        break;
+
+                    case "CLIENT_CREATE_ROOM":
+                        {
+                            if (_players.TryGetValue(session.Id, out var creator))
+                            {
+                                string newRoomId = Guid.NewGuid().ToString().Substring(0, 6);
+                                string roomName = string.IsNullOrEmpty(msg.RoomName) ? $"Room {newRoomId}" : msg.RoomName;
+
+                                Room newRoom = new Room(newRoomId, roomName) { CreatorId = creator.Id };
+                                if (_rooms.TryAdd(newRoomId, newRoom))
+                                {
+                                    Log($"Player '{creator.Username}' created room '{roomName}' (ID: {newRoomId})");
+
+                                    // Leave current room
+                                    if (creator.RoomId != null && _rooms.TryGetValue(creator.RoomId, out var oldRoom))
+                                    {
+                                        oldRoom.RemovePlayer(creator.Id);
+                                        oldRoom.BroadcastPlayerList();
+                                    }
+
+                                    // Join new room
+                                    newRoom.AddPlayer(creator);
+
+                                    await session.SendAsync(new NetworkMessage
+                                    {
+                                        Type = "SERVER_JOIN_ROOM_RESPONSE",
+                                        Success = true,
+                                        RoomId = newRoomId,
+                                        Message = $"Successfully created and joined room '{roomName}'."
+                                    });
+
+                                    newRoom.BroadcastPlayerList();
+                                    OnClientListChanged?.Invoke();
+                                }
+                                else
+                                {
+                                    await session.SendAsync(new NetworkMessage
+                                    {
+                                        Type = "SERVER_JOIN_ROOM_RESPONSE",
+                                        Success = false,
+                                        Message = "Failed to create room."
+                                    });
+                                }
+                            }
+                            break;
+                        }
+
+                    case "CLIENT_JOIN_ROOM":
+                        {
+                            if (_players.TryGetValue(session.Id, out var joiner) && !string.IsNullOrEmpty(msg.RoomId))
+                            {
+                                if (_rooms.TryGetValue(msg.RoomId, out var targetRoom))
+                                {
+                                    Log($"Player '{joiner.Username}' joining room '{targetRoom.Name}' (ID: {targetRoom.Id})");
+
+                                    // Leave current room
+                                    if (joiner.RoomId != null && _rooms.TryGetValue(joiner.RoomId, out var oldRoom))
+                                    {
+                                        oldRoom.RemovePlayer(joiner.Id);
+                                        oldRoom.BroadcastPlayerList();
+                                    }
+
+                                    targetRoom.AddPlayer(joiner);
+
+                                    await session.SendAsync(new NetworkMessage
+                                    {
+                                        Type = "SERVER_JOIN_ROOM_RESPONSE",
+                                        Success = true,
+                                        RoomId = targetRoom.Id,
+                                        Message = $"Successfully joined room '{targetRoom.Name}'."
+                                    });
+
+                                    targetRoom.BroadcastPlayerList();
+                                    OnClientListChanged?.Invoke();
+
+                                    // Send current board status if active
+                                    bool isGameActiveCopy;
+                                    int[][]? boardJagged = null;
+                                    lock (targetRoom.GameLock)
+                                    {
+                                        isGameActiveCopy = targetRoom.IsGameActive;
+                                        if (isGameActiveCopy)
+                                        {
+                                            boardJagged = ConvertToJagged(targetRoom.Engine.PlayerBoard);
+                                        }
+                                    }
+
+                                    if (isGameActiveCopy && boardJagged != null)
+                                    {
+                                        await session.SendAsync(new NetworkMessage
+                                        {
+                                            Type = "SERVER_START_GAME",
+                                            Board = boardJagged
+                                        });
+                                    }
+                                }
+                                else
+                                {
+                                    await session.SendAsync(new NetworkMessage
+                                    {
+                                        Type = "SERVER_JOIN_ROOM_RESPONSE",
+                                        Success = false,
+                                        Message = "Room not found."
+                                    });
+                                }
+                            }
+                            break;
+                        }
+
+                    case "CLIENT_LEAVE_ROOM":
+                        {
+                            if (_players.TryGetValue(session.Id, out var leaver) && leaver.RoomId != null)
+                            {
+                                if (leaver.RoomId != "default" && _rooms.TryGetValue(leaver.RoomId, out var currentRoom))
+                                {
+                                    Log($"Player '{leaver.Username}' leaving room '{currentRoom.Name}' to join lobby.");
+                                    currentRoom.RemovePlayer(leaver.Id);
+                                    currentRoom.BroadcastPlayerList();
+
+                                    if (_rooms.TryGetValue("default", out var defaultRoom))
+                                    {
+                                        defaultRoom.AddPlayer(leaver);
+                                        defaultRoom.BroadcastPlayerList();
+                                    }
+
+                                    await session.SendAsync(new NetworkMessage
+                                    {
+                                        Type = "SERVER_LEAVE_ROOM_RESPONSE",
+                                        Success = true,
+                                        Message = "Returned to default lobby."
+                                    });
+                                    OnClientListChanged?.Invoke();
+                                }
+                            }
+                            break;
+                        }
+
+                    case "CLIENT_GET_ROOMS":
+                        {
+                            var roomsData = _rooms.Values.Select(r => new RoomData
+                            {
+                                Id = r.Id,
+                                Name = r.Name,
+                                PlayerCount = r.Players.Count,
+                                IsGameActive = r.IsGameActive
+                            }).ToList();
+
+                            await session.SendAsync(new NetworkMessage
+                            {
+                                Type = "SERVER_ROOM_LIST",
+                                Rooms = roomsData
+                            });
+                            break;
+                        }
                 }
             }
             catch (Exception ex)
@@ -434,84 +653,28 @@ namespace SudokuServer.Network
         {
             if (!IsRunning) return;
 
-            int[][] boardJagged;
-            lock (_gameLock)
+            // By default, start game in the default room
+            if (_rooms.TryGetValue("default", out var defaultRoom))
             {
-                Log($"Starting a new game. Difficulty: removing {cellsToRemove} cells.");
-                _engine.GenerateNewGame(cellsToRemove);
-                _isGameActive = true;
-
-                // Reset player scores
-                foreach (var client in _clients.Values)
-                {
-                    client.Score = 0;
-                }
-
-                boardJagged = ConvertToJagged(_engine.PlayerBoard);
+                Log($"Starting a new game in lobby room. Difficulty: removing {cellsToRemove} cells.");
+                defaultRoom.StartGame(cellsToRemove);
+                OnGameStateChanged?.Invoke();
             }
-
-            Broadcast(new NetworkMessage
-            {
-                Type = "SERVER_START_GAME",
-                Board = boardJagged
-            });
-
-            BroadcastPlayerList();
-            OnGameStateChanged?.Invoke();
-        }
-
-        private void EndGame()
-        {
-            lock (_gameLock)
-            {
-                _isGameActive = false;
-            }
-            Log("Sudoku solved! Game Over.");
-
-            // Find winner (highest score)
-            var sortedPlayers = _clients.Values.OrderByDescending(c => c.Score).ToList();
-            string winnerName = sortedPlayers.FirstOrDefault()?.Username ?? "None";
-
-            Log($"Winner: {winnerName} with {sortedPlayers.FirstOrDefault()?.Score ?? 0} points!");
-
-            Broadcast(new NetworkMessage
-            {
-                Type = "SERVER_GAME_OVER",
-                Message = $"Game completed! Winner: {winnerName}",
-                Players = sortedPlayers.Select(p => new PlayerData
-                {
-                    Id = p.Id,
-                    Username = p.Username,
-                    Score = p.Score,
-                    IsReady = p.IsReady
-                }).ToList()
-            });
-
-            OnGameStateChanged?.Invoke();
         }
 
         private void BroadcastPlayerList()
         {
-            var list = _clients.Values.Select(p => new PlayerData
+            if (_rooms.TryGetValue("default", out var defaultRoom))
             {
-                Id = p.Id,
-                Username = p.Username,
-                Score = p.Score,
-                IsReady = p.IsReady
-            }).ToList();
-
-            Broadcast(new NetworkMessage
-            {
-                Type = "SERVER_PLAYER_LIST",
-                Players = list
-            });
+                defaultRoom.BroadcastPlayerList();
+            }
         }
 
         private void Broadcast(object obj)
         {
-            foreach (var client in _clients.Values)
+            foreach (var player in _players.Values)
             {
-                _ = client.SendAsync(obj);
+                _ = player.Session.SendAsync(obj);
             }
         }
 
@@ -552,6 +715,9 @@ namespace SudokuServer.Network
         public bool? Correct { get; set; }
         public string? ChatText { get; set; }
         public List<PlayerData>? Players { get; set; }
+        public string? RoomId { get; set; }
+        public string? RoomName { get; set; }
+        public List<RoomData>? Rooms { get; set; }
     }
 
     public class PlayerData
@@ -560,5 +726,13 @@ namespace SudokuServer.Network
         public string Username { get; set; } = string.Empty;
         public int Score { get; set; }
         public bool IsReady { get; set; }
+    }
+
+    public class RoomData
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public int PlayerCount { get; set; }
+        public bool IsGameActive { get; set; }
     }
 }
