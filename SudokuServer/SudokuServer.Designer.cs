@@ -34,7 +34,7 @@
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(652, 271);
+            ClientSize = new Size(652, 398);
             Name = "SudokuServer";
             Text = "Form1";
             Load += Form1_Load;
