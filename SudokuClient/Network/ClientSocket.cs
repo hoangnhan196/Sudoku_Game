@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace SudokuClient.GameLogic
+namespace SudokuClient.Network
 {
-    internal class BoardController
+    internal class ClientSocket
     {
     }
 }
