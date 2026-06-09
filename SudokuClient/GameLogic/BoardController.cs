@@ -8,5 +8,6 @@ namespace SudokuClient.GameLogic
 {
     internal class BoardController
     {
+
     }
 }
