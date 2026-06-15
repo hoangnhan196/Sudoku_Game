@@ -2,7 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using SudokuServer.Game;
+using SudokuServer.GameLogic;
 using SudokuServer.Network;
 
 namespace SudokuServer.Models
@@ -12,7 +12,7 @@ namespace SudokuServer.Models
         public string Id { get; }
         public string Name { get; }
         public ConcurrentDictionary<string, Player> Players { get; } = new ConcurrentDictionary<string, Player>();
-        public SudokuEngine Engine { get; } = new SudokuEngine();
+        public SudokuCore Engine { get; } = new SudokuCore();
         public bool IsGameActive { get; set; } = false;
         public object GameLock { get; } = new object();
         public string? CreatorId { get; set; }

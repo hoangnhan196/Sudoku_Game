@@ -28,289 +28,284 @@ namespace SudokuServer
         /// </summary>
         private void InitializeComponent()
         {
-            this.pnlTop = new System.Windows.Forms.Panel();
-            this.lblStatus = new System.Windows.Forms.Label();
-            this.cmbDifficulty = new System.Windows.Forms.ComboBox();
-            this.lblDifficulty = new System.Windows.Forms.Label();
-            this.btnStartGame = new System.Windows.Forms.Button();
-            this.btnStop = new System.Windows.Forms.Button();
-            this.btnStart = new System.Windows.Forms.Button();
-            this.txtPort = new System.Windows.Forms.TextBox();
-            this.lblPort = new System.Windows.Forms.Label();
-            this.pnlLeft = new System.Windows.Forms.Panel();
-            this.lstClients = new System.Windows.Forms.ListBox();
-            this.lblClients = new System.Windows.Forms.Label();
-            this.pnlRight = new System.Windows.Forms.Panel();
-            this.pnlBoard = new System.Windows.Forms.Panel();
-            this.lblBoard = new System.Windows.Forms.Label();
-            this.pnlCenter = new System.Windows.Forms.Panel();
-            this.rtbLog = new System.Windows.Forms.RichTextBox();
-            this.lblLog = new System.Windows.Forms.Label();
-            this.pnlTop.SuspendLayout();
-            this.pnlLeft.SuspendLayout();
-            this.pnlRight.SuspendLayout();
-            this.pnlCenter.SuspendLayout();
-            this.SuspendLayout();
+            pnlTop = new Panel();
+            lblStatus = new Label();
+            cmbDifficulty = new ComboBox();
+            lblDifficulty = new Label();
+            btnStartGame = new Button();
+            btnStop = new Button();
+            btnStart = new Button();
+            txtPort = new TextBox();
+            lblPort = new Label();
+            pnlLeft = new Panel();
+            lstClients = new ListBox();
+            lblClients = new Label();
+            pnlRight = new Panel();
+            pnlBoard = new Panel();
+            lblBoard = new Label();
+            pnlCenter = new Panel();
+            rtbLog = new RichTextBox();
+            lblLog = new Label();
+            pnlTop.SuspendLayout();
+            pnlLeft.SuspendLayout();
+            pnlRight.SuspendLayout();
+            pnlCenter.SuspendLayout();
+            SuspendLayout();
             // 
             // pnlTop
             // 
-            this.pnlTop.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(28)))), ((int)(((byte)(28)))), ((int)(((byte)(36)))));
-            this.pnlTop.Controls.Add(this.lblStatus);
-            this.pnlTop.Controls.Add(this.cmbDifficulty);
-            this.pnlTop.Controls.Add(this.lblDifficulty);
-            this.pnlTop.Controls.Add(this.btnStartGame);
-            this.pnlTop.Controls.Add(this.btnStop);
-            this.pnlTop.Controls.Add(this.btnStart);
-            this.pnlTop.Controls.Add(this.txtPort);
-            this.pnlTop.Controls.Add(this.lblPort);
-            this.pnlTop.Dock = System.Windows.Forms.DockStyle.Top;
-            this.pnlTop.Location = new System.Drawing.Point(0, 0);
-            this.pnlTop.Name = "pnlTop";
-            this.pnlTop.Size = new System.Drawing.Size(1008, 70);
-            this.pnlTop.TabIndex = 0;
+            pnlTop.BackColor = Color.FromArgb(28, 28, 36);
+            pnlTop.Controls.Add(lblStatus);
+            pnlTop.Controls.Add(cmbDifficulty);
+            pnlTop.Controls.Add(lblDifficulty);
+            pnlTop.Controls.Add(btnStartGame);
+            pnlTop.Controls.Add(btnStop);
+            pnlTop.Controls.Add(btnStart);
+            pnlTop.Controls.Add(txtPort);
+            pnlTop.Controls.Add(lblPort);
+            pnlTop.Dock = DockStyle.Top;
+            pnlTop.Location = new Point(0, 0);
+            pnlTop.Name = "pnlTop";
+            pnlTop.Size = new Size(1008, 70);
+            pnlTop.TabIndex = 0;
             // 
             // lblStatus
             // 
-            this.lblStatus.AutoSize = true;
-            this.lblStatus.Font = new System.Drawing.Font("Segoe UI", 11F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
-            this.lblStatus.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(220)))), ((int)(((byte)(53)))), ((int)(((byte)(69)))));
-            this.lblStatus.Location = new System.Drawing.Point(780, 25);
-            this.lblStatus.Name = "lblStatus";
-            this.lblStatus.Size = new System.Drawing.Size(126, 20);
-            this.lblStatus.TabIndex = 7;
-            this.lblStatus.Text = "Status: Stopped";
+            lblStatus.AutoSize = true;
+            lblStatus.Font = new Font("Segoe UI", 11F, FontStyle.Bold);
+            lblStatus.ForeColor = Color.FromArgb(220, 53, 69);
+            lblStatus.Location = new Point(780, 25);
+            lblStatus.Name = "lblStatus";
+            lblStatus.Size = new Size(119, 20);
+            lblStatus.TabIndex = 7;
+            lblStatus.Text = "Status: Stopped";
             // 
             // cmbDifficulty
             // 
-            this.cmbDifficulty.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(55)))), ((int)(((byte)(60)))));
-            this.cmbDifficulty.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.cmbDifficulty.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            this.cmbDifficulty.ForeColor = System.Drawing.Color.White;
-            this.cmbDifficulty.FormattingEnabled = true;
-            this.cmbDifficulty.Items.AddRange(new object[] {
-            "Easy (30 blank cells)",
-            "Medium (42 blank cells)",
-            "Hard (52 blank cells)",
-            "Expert (62 blank cells)",
-            "Evil (72 blank cells)"});
-            this.cmbDifficulty.Location = new System.Drawing.Point(460, 22);
-            this.cmbDifficulty.Name = "cmbDifficulty";
-            this.cmbDifficulty.Size = new System.Drawing.Size(160, 25);
-            this.cmbDifficulty.TabIndex = 6;
+            cmbDifficulty.BackColor = Color.FromArgb(45, 55, 60);
+            cmbDifficulty.FlatStyle = FlatStyle.Flat;
+            cmbDifficulty.Font = new Font("Segoe UI", 10F);
+            cmbDifficulty.ForeColor = Color.White;
+            cmbDifficulty.FormattingEnabled = true;
+            cmbDifficulty.Items.AddRange(new object[] { "Easy (30 blank cells)", "Medium (42 blank cells)", "Hard (52 blank cells)", "Expert (62 blank cells)", "Evil (72 blank cells)" });
+            cmbDifficulty.Location = new Point(460, 22);
+            cmbDifficulty.Name = "cmbDifficulty";
+            cmbDifficulty.Size = new Size(160, 25);
+            cmbDifficulty.TabIndex = 6;
             // 
             // lblDifficulty
             // 
-            this.lblDifficulty.AutoSize = true;
-            this.lblDifficulty.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            this.lblDifficulty.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(210)))));
-            this.lblDifficulty.Location = new System.Drawing.Point(388, 25);
-            this.lblDifficulty.Name = "lblDifficulty";
-            this.lblDifficulty.Size = new System.Drawing.Size(66, 19);
-            this.lblDifficulty.TabIndex = 5;
-            this.lblDifficulty.Text = "Difficulty:";
+            lblDifficulty.AutoSize = true;
+            lblDifficulty.Font = new Font("Segoe UI", 10F);
+            lblDifficulty.ForeColor = Color.FromArgb(200, 200, 210);
+            lblDifficulty.Location = new Point(388, 25);
+            lblDifficulty.Name = "lblDifficulty";
+            lblDifficulty.Size = new Size(65, 19);
+            lblDifficulty.TabIndex = 5;
+            lblDifficulty.Text = "Difficulty:";
             // 
             // btnStartGame
             // 
-            this.btnStartGame.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(108)))), ((int)(((byte)(92)))), ((int)(((byte)(231)))));
-            this.btnStartGame.Enabled = false;
-            this.btnStartGame.FlatAppearance.BorderSize = 0;
-            this.btnStartGame.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnStartGame.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
-            this.btnStartGame.ForeColor = System.Drawing.Color.White;
-            this.btnStartGame.Location = new System.Drawing.Point(630, 20);
-            this.btnStartGame.Name = "btnStartGame";
-            this.btnStartGame.Size = new System.Drawing.Size(120, 30);
-            this.btnStartGame.TabIndex = 4;
-            this.btnStartGame.Text = "Start Game";
-            this.btnStartGame.UseVisualStyleBackColor = false;
-            this.btnStartGame.Click += new System.EventHandler(this.btnStartGame_Click);
+            btnStartGame.BackColor = Color.FromArgb(108, 92, 231);
+            btnStartGame.Enabled = false;
+            btnStartGame.FlatAppearance.BorderSize = 0;
+            btnStartGame.FlatStyle = FlatStyle.Flat;
+            btnStartGame.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+            btnStartGame.ForeColor = Color.White;
+            btnStartGame.Location = new Point(630, 20);
+            btnStartGame.Name = "btnStartGame";
+            btnStartGame.Size = new Size(120, 30);
+            btnStartGame.TabIndex = 4;
+            btnStartGame.Text = "Start Game";
+            btnStartGame.UseVisualStyleBackColor = false;
+            btnStartGame.Click += btnStartGame_Click;
             // 
             // btnStop
             // 
-            this.btnStop.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(220)))), ((int)(((byte)(53)))), ((int)(((byte)(69)))));
-            this.btnStop.Enabled = false;
-            this.btnStop.FlatAppearance.BorderSize = 0;
-            this.btnStop.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnStop.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
-            this.btnStop.ForeColor = System.Drawing.Color.White;
-            this.btnStop.Location = new System.Drawing.Point(260, 20);
-            this.btnStop.Name = "btnStop";
-            this.btnStop.Size = new System.Drawing.Size(90, 30);
-            this.btnStop.TabIndex = 3;
-            this.btnStop.Text = "Stop";
-            this.btnStop.UseVisualStyleBackColor = false;
-            this.btnStop.Click += new System.EventHandler(this.btnStop_Click);
+            btnStop.BackColor = Color.FromArgb(220, 53, 69);
+            btnStop.Enabled = false;
+            btnStop.FlatAppearance.BorderSize = 0;
+            btnStop.FlatStyle = FlatStyle.Flat;
+            btnStop.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+            btnStop.ForeColor = Color.White;
+            btnStop.Location = new Point(260, 20);
+            btnStop.Name = "btnStop";
+            btnStop.Size = new Size(90, 30);
+            btnStop.TabIndex = 3;
+            btnStop.Text = "Stop";
+            btnStop.UseVisualStyleBackColor = false;
+            btnStop.Click += btnStop_Click;
             // 
             // btnStart
             // 
-            this.btnStart.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(40)))), ((int)(((byte)(167)))), ((int)(((byte)(69)))));
-            this.btnStart.FlatAppearance.BorderSize = 0;
-            this.btnStart.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnStart.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
-            this.btnStart.ForeColor = System.Drawing.Color.White;
-            this.btnStart.Location = new System.Drawing.Point(160, 20);
-            this.btnStart.Name = "btnStart";
-            this.btnStart.Size = new System.Drawing.Size(90, 30);
-            this.btnStart.TabIndex = 2;
-            this.btnStart.Text = "Start Server";
-            this.btnStart.UseVisualStyleBackColor = false;
-            this.btnStart.Click += new System.EventHandler(this.btnStart_Click);
+            btnStart.BackColor = Color.FromArgb(40, 167, 69);
+            btnStart.FlatAppearance.BorderSize = 0;
+            btnStart.FlatStyle = FlatStyle.Flat;
+            btnStart.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+            btnStart.ForeColor = Color.White;
+            btnStart.Location = new Point(160, 20);
+            btnStart.Name = "btnStart";
+            btnStart.Size = new Size(90, 30);
+            btnStart.TabIndex = 2;
+            btnStart.Text = "Start Server";
+            btnStart.UseVisualStyleBackColor = false;
+            btnStart.Click += btnStart_Click;
             // 
             // txtPort
             // 
-            this.txtPort.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(56)))));
-            this.txtPort.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtPort.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            this.txtPort.ForeColor = System.Drawing.Color.White;
-            this.txtPort.Location = new System.Drawing.Point(60, 22);
-            this.txtPort.Name = "txtPort";
-            this.txtPort.Size = new System.Drawing.Size(80, 25);
-            this.txtPort.TabIndex = 1;
-            this.txtPort.Text = "";
+            txtPort.BackColor = Color.FromArgb(45, 45, 56);
+            txtPort.BorderStyle = BorderStyle.FixedSingle;
+            txtPort.Font = new Font("Segoe UI", 10F);
+            txtPort.ForeColor = Color.White;
+            txtPort.Location = new Point(60, 22);
+            txtPort.Name = "txtPort";
+            txtPort.Size = new Size(80, 25);
+            txtPort.TabIndex = 1;
             // 
             // lblPort
             // 
-            this.lblPort.AutoSize = true;
-            this.lblPort.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            this.lblPort.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(210)))));
-            this.lblPort.Location = new System.Drawing.Point(20, 25);
-            this.lblPort.Name = "lblPort";
-            this.lblPort.Size = new System.Drawing.Size(37, 19);
-            this.lblPort.TabIndex = 0;
-            this.lblPort.Text = "Port:";
+            lblPort.AutoSize = true;
+            lblPort.Font = new Font("Segoe UI", 10F);
+            lblPort.ForeColor = Color.FromArgb(200, 200, 210);
+            lblPort.Location = new Point(20, 25);
+            lblPort.Name = "lblPort";
+            lblPort.Size = new Size(37, 19);
+            lblPort.TabIndex = 0;
+            lblPort.Text = "Port:";
             // 
             // pnlLeft
             // 
-            this.pnlLeft.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(21)))), ((int)(((byte)(21)))), ((int)(((byte)(28)))));
-            this.pnlLeft.Controls.Add(this.lstClients);
-            this.pnlLeft.Controls.Add(this.lblClients);
-            this.pnlLeft.Dock = System.Windows.Forms.DockStyle.Left;
-            this.pnlLeft.Location = new System.Drawing.Point(0, 70);
-            this.pnlLeft.Name = "pnlLeft";
-            this.pnlLeft.Padding = new System.Windows.Forms.Padding(15);
-            this.pnlLeft.Size = new System.Drawing.Size(250, 491);
-            this.pnlLeft.TabIndex = 1;
+            pnlLeft.BackColor = Color.FromArgb(21, 21, 28);
+            pnlLeft.Controls.Add(lstClients);
+            pnlLeft.Controls.Add(lblClients);
+            pnlLeft.Dock = DockStyle.Left;
+            pnlLeft.Location = new Point(0, 70);
+            pnlLeft.Name = "pnlLeft";
+            pnlLeft.Padding = new Padding(15);
+            pnlLeft.Size = new Size(250, 491);
+            pnlLeft.TabIndex = 1;
             // 
             // lstClients
             // 
-            this.lstClients.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(30)))), ((int)(((byte)(40)))));
-            this.lstClients.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.lstClients.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lstClients.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            this.lstClients.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(230)))), ((int)(((byte)(230)))), ((int)(((byte)(240)))));
-            this.lstClients.FormattingEnabled = true;
-            this.lstClients.ItemHeight = 17;
-            this.lstClients.Location = new System.Drawing.Point(15, 45);
-            this.lstClients.Name = "lstClients";
-            this.lstClients.SelectionMode = System.Windows.Forms.SelectionMode.None;
-            this.lstClients.Size = new System.Drawing.Size(220, 431);
-            this.lstClients.TabIndex = 1;
+            lstClients.BackColor = Color.FromArgb(30, 30, 40);
+            lstClients.BorderStyle = BorderStyle.None;
+            lstClients.Dock = DockStyle.Fill;
+            lstClients.Font = new Font("Segoe UI", 10F);
+            lstClients.ForeColor = Color.FromArgb(230, 230, 240);
+            lstClients.FormattingEnabled = true;
+            lstClients.ItemHeight = 17;
+            lstClients.Location = new Point(15, 45);
+            lstClients.Name = "lstClients";
+            lstClients.SelectionMode = SelectionMode.None;
+            lstClients.Size = new Size(220, 431);
+            lstClients.TabIndex = 1;
             // 
             // lblClients
             // 
-            this.lblClients.Dock = System.Windows.Forms.DockStyle.Top;
-            this.lblClients.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
-            this.lblClients.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(150)))), ((int)(((byte)(150)))), ((int)(((byte)(160)))));
-            this.lblClients.Location = new System.Drawing.Point(15, 15);
-            this.lblClients.Name = "lblClients";
-            this.lblClients.Size = new System.Drawing.Size(220, 30);
-            this.lblClients.TabIndex = 0;
-            this.lblClients.Text = "Connected Players (0)";
-            this.lblClients.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            lblClients.Dock = DockStyle.Top;
+            lblClients.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+            lblClients.ForeColor = Color.FromArgb(150, 150, 160);
+            lblClients.Location = new Point(15, 15);
+            lblClients.Name = "lblClients";
+            lblClients.Size = new Size(220, 30);
+            lblClients.TabIndex = 0;
+            lblClients.Text = "Connected Players (0)";
+            lblClients.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // pnlRight
             // 
-            this.pnlRight.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(21)))), ((int)(((byte)(21)))), ((int)(((byte)(28)))));
-            this.pnlRight.Controls.Add(this.pnlBoard);
-            this.pnlRight.Controls.Add(this.lblBoard);
-            this.pnlRight.Dock = System.Windows.Forms.DockStyle.Right;
-            this.pnlRight.Location = new System.Drawing.Point(628, 70);
-            this.pnlRight.Name = "pnlRight";
-            this.pnlRight.Padding = new System.Windows.Forms.Padding(15);
-            this.pnlRight.Size = new System.Drawing.Size(380, 491);
-            this.pnlRight.TabIndex = 2;
+            pnlRight.BackColor = Color.FromArgb(21, 21, 28);
+            pnlRight.Controls.Add(pnlBoard);
+            pnlRight.Controls.Add(lblBoard);
+            pnlRight.Dock = DockStyle.Right;
+            pnlRight.Location = new Point(628, 70);
+            pnlRight.Name = "pnlRight";
+            pnlRight.Padding = new Padding(15);
+            pnlRight.Size = new Size(380, 491);
+            pnlRight.TabIndex = 2;
             // 
             // pnlBoard
             // 
-            this.pnlBoard.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(30)))), ((int)(((byte)(40)))));
-            this.pnlBoard.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.pnlBoard.Location = new System.Drawing.Point(15, 45);
-            this.pnlBoard.Name = "pnlBoard";
-            this.pnlBoard.Size = new System.Drawing.Size(350, 350);
-            this.pnlBoard.TabIndex = 1;
-            this.pnlBoard.Paint += new System.Windows.Forms.PaintEventHandler(this.pnlBoard_Paint);
+            pnlBoard.BackColor = Color.FromArgb(30, 30, 40);
+            pnlBoard.BorderStyle = BorderStyle.FixedSingle;
+            pnlBoard.Location = new Point(15, 45);
+            pnlBoard.Name = "pnlBoard";
+            pnlBoard.Size = new Size(350, 350);
+            pnlBoard.TabIndex = 1;
+            pnlBoard.Paint += pnlBoard_Paint;
             // 
             // lblBoard
             // 
-            this.lblBoard.Dock = System.Windows.Forms.DockStyle.Top;
-            this.lblBoard.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
-            this.lblBoard.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(150)))), ((int)(((byte)(150)))), ((int)(((byte)(160)))));
-            this.lblBoard.Location = new System.Drawing.Point(15, 15);
-            this.lblBoard.Name = "lblBoard";
-            this.lblBoard.Size = new System.Drawing.Size(350, 30);
-            this.lblBoard.TabIndex = 0;
-            this.lblBoard.Text = "Sudoku Board Status Preview";
-            this.lblBoard.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            lblBoard.Dock = DockStyle.Top;
+            lblBoard.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+            lblBoard.ForeColor = Color.FromArgb(150, 150, 160);
+            lblBoard.Location = new Point(15, 15);
+            lblBoard.Name = "lblBoard";
+            lblBoard.Size = new Size(350, 30);
+            lblBoard.TabIndex = 0;
+            lblBoard.Text = "Sudoku Board Status Preview";
+            lblBoard.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // pnlCenter
             // 
-            this.pnlCenter.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(18)))), ((int)(((byte)(18)))), ((int)(((byte)(24)))));
-            this.pnlCenter.Controls.Add(this.rtbLog);
-            this.pnlCenter.Controls.Add(this.lblLog);
-            this.pnlCenter.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.pnlCenter.Location = new System.Drawing.Point(250, 70);
-            this.pnlCenter.Name = "pnlCenter";
-            this.pnlCenter.Padding = new System.Windows.Forms.Padding(15);
-            this.pnlCenter.Size = new System.Drawing.Size(378, 491);
-            this.pnlCenter.TabIndex = 3;
+            pnlCenter.BackColor = Color.FromArgb(18, 18, 24);
+            pnlCenter.Controls.Add(rtbLog);
+            pnlCenter.Controls.Add(lblLog);
+            pnlCenter.Dock = DockStyle.Fill;
+            pnlCenter.Location = new Point(250, 70);
+            pnlCenter.Name = "pnlCenter";
+            pnlCenter.Padding = new Padding(15);
+            pnlCenter.Size = new Size(378, 491);
+            pnlCenter.TabIndex = 3;
+            pnlCenter.Paint += pnlCenter_Paint;
             // 
             // rtbLog
             // 
-            this.rtbLog.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(30)))), ((int)(((byte)(40)))));
-            this.rtbLog.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.rtbLog.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rtbLog.Font = new System.Drawing.Font("Consolas", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            this.rtbLog.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(220)))), ((int)(((byte)(220)))), ((int)(((byte)(230)))));
-            this.rtbLog.Location = new System.Drawing.Point(15, 45);
-            this.rtbLog.Name = "rtbLog";
-            this.rtbLog.ReadOnly = true;
-            this.rtbLog.Size = new System.Drawing.Size(348, 431);
-            this.rtbLog.TabIndex = 1;
-            this.rtbLog.Text = "";
+            rtbLog.BackColor = Color.FromArgb(30, 30, 40);
+            rtbLog.BorderStyle = BorderStyle.None;
+            rtbLog.Dock = DockStyle.Fill;
+            rtbLog.Font = new Font("Consolas", 9.75F);
+            rtbLog.ForeColor = Color.FromArgb(220, 220, 230);
+            rtbLog.Location = new Point(15, 45);
+            rtbLog.Name = "rtbLog";
+            rtbLog.ReadOnly = true;
+            rtbLog.Size = new Size(348, 431);
+            rtbLog.TabIndex = 1;
+            rtbLog.Text = "";
             // 
             // lblLog
             // 
-            this.lblLog.Dock = System.Windows.Forms.DockStyle.Top;
-            this.lblLog.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
-            this.lblLog.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(150)))), ((int)(((byte)(150)))), ((int)(((byte)(160)))));
-            this.lblLog.Location = new System.Drawing.Point(15, 15);
-            this.lblLog.Name = "lblLog";
-            this.lblLog.Size = new System.Drawing.Size(348, 30);
-            this.lblLog.TabIndex = 0;
-            this.lblLog.Text = "Server Activity Log";
-            this.lblLog.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            lblLog.Dock = DockStyle.Top;
+            lblLog.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+            lblLog.ForeColor = Color.FromArgb(150, 150, 160);
+            lblLog.Location = new Point(15, 15);
+            lblLog.Name = "lblLog";
+            lblLog.Size = new Size(348, 30);
+            lblLog.TabIndex = 0;
+            lblLog.Text = "Server Activity Log";
+            lblLog.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // SudokuServer
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(18)))), ((int)(((byte)(18)))), ((int)(((byte)(24)))));
-            this.ClientSize = new System.Drawing.Size(1008, 561);
-            this.Controls.Add(this.pnlCenter);
-            this.Controls.Add(this.pnlRight);
-            this.Controls.Add(this.pnlLeft);
-            this.Controls.Add(this.pnlTop);
-            this.MinimumSize = new System.Drawing.Size(1024, 600);
-            this.Name = "SudokuServer";
-            this.Text = "Multiplayer Sudoku Server Dashboard";
-            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.SudokuServer_FormClosing);
-            this.Load += new System.EventHandler(this.Form1_Load);
-            this.pnlTop.ResumeLayout(false);
-            this.pnlTop.PerformLayout();
-            this.pnlLeft.ResumeLayout(false);
-            this.pnlRight.ResumeLayout(false);
-            this.pnlCenter.ResumeLayout(false);
-            this.ResumeLayout(false);
+            AutoScaleDimensions = new SizeF(7F, 15F);
+            AutoScaleMode = AutoScaleMode.Font;
+            BackColor = Color.FromArgb(18, 18, 24);
+            ClientSize = new Size(1008, 561);
+            Controls.Add(pnlCenter);
+            Controls.Add(pnlRight);
+            Controls.Add(pnlLeft);
+            Controls.Add(pnlTop);
+            MinimumSize = new Size(1024, 600);
+            Name = "SudokuServer";
+            Text = "Multiplayer Sudoku Server Dashboard";
+            FormClosing += SudokuServer_FormClosing;
+            Load += Form1_Load;
+            pnlTop.ResumeLayout(false);
+            pnlTop.PerformLayout();
+            pnlLeft.ResumeLayout(false);
+            pnlRight.ResumeLayout(false);
+            pnlCenter.ResumeLayout(false);
+            ResumeLayout(false);
 
         }
 

@@ -227,5 +227,10 @@ namespace SudokuServer
         {
 
         }
+
+        private void pnlCenter_Paint(object sender, PaintEventArgs e)
+        {
+
+        }
     }
 }
