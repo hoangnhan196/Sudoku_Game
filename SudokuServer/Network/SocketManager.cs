@@ -137,226 +137,151 @@ namespace SudokuServer.Network
 
         public List<ClientSession> GetClientsList() => _players.Values.Select(p => p.Session).ToList();
 
-namespace SudokuServer.Network
-    {
-        public class NetworkServer
+        public void Start(string ipAddress, int port)
         {
-            private TcpListener? _listener;
-            private CancellationTokenSource? _cts;
-            private readonly object _lock = new object();
+            if (IsRunning) return;
 
-            // Lưu tất cả client đang kết nối: key = clientId
-            private readonly ConcurrentDictionary<string, ClientSession> _clients = new();
+            _cts = new CancellationTokenSource();
 
-            private int _port = 9999;
-
-            // ── Events ──────────────────────────────────────────────
-            public event Action<string>? OnClientConnected;       // clientId
-            public event Action<string>? OnClientDisconnected;    // clientId
-            public event Action<string, NetworkMessage>? OnMessageReceived; // clientId, message
-
-            // ── State ────────────────────────────────────────────────
-            public bool IsRunning => _listener != null;
-            public int ClientCount => _clients.Count;
-
-            // ── Start ────────────────────────────────────────────────
-            public void Start(int port = 9999)
+            IPAddress ip = IPAddress.Any;
+            if (!string.IsNullOrWhiteSpace(ipAddress))
             {
-                _port = port;
-                _cts = new CancellationTokenSource();
-                _listener = new TcpListener(IPAddress.Any, _port); // ✅ nhận từ mọi IP trong LAN
+                if (!IPAddress.TryParse(ipAddress, out IPAddress? parsedIp) || parsedIp == null)
+                {
+                    throw new ArgumentException("Invalid IP address format.");
+                }
+                ip = parsedIp;
+            }
+
+            _listener = new TcpListener(ip, port);
+
+            try
+            {
                 _listener.Start();
-
-                Console.WriteLine($"Server started on port {_port}");
-                Console.WriteLine($"Local IP: {GetLocalIP()}");
-
-                // Vòng lặp chấp nhận client trên background thread
+                Port = ((IPEndPoint)_listener.LocalEndpoint).Port;
+                IsRunning = true;
+                string boundIp = ip.Equals(IPAddress.Any) ? "Any" : ip.ToString();
+                Log($"Server started on IP {boundIp}, port {Port}. Listening for connections...");
                 Task.Run(() => AcceptClientsAsync(_cts.Token));
+                StartUdpDiscovery(_cts.Token);
             }
-
-            // ── Accept clients ───────────────────────────────────────
-            private async Task AcceptClientsAsync(CancellationToken token)
+            catch (Exception ex)
             {
-                try
-                {
-                    while (!token.IsCancellationRequested && _listener != null)
-                    {
-                        TcpClient tcpClient = await _listener.AcceptTcpClientAsync(token);
-                        string clientId = Guid.NewGuid().ToString("N")[..8]; // ID ngắn gọn
+                Log($"Error starting server: {ex.Message}");
 
-                        var session = new ClientSession(clientId, tcpClient);
-                        _clients[clientId] = session;
+                try { _listener.Stop(); } catch { }
+                _listener = null;
 
-                        Console.WriteLine($"[+] Client {clientId} connected from {tcpClient.Client.RemoteEndPoint}");
-                        OnClientConnected?.Invoke(clientId);
+                try { _cts.Cancel(); } catch { }
+                try { _cts.Dispose(); } catch { }
+                _cts = null;
 
-                        // Mỗi client chạy trên task riêng
-                        Task.Run(() => HandleClientAsync(session, token));
-                    }
-                }
-                catch (OperationCanceledException)
-                {
-                    // Server đang stop → bình thường
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine("Accept error: " + ex.Message);
-                }
-            }
-
-            // ── Handle từng client ───────────────────────────────────
-            private async Task HandleClientAsync(ClientSession session, CancellationToken token)
-            {
-                try
-                {
-                    while (!token.IsCancellationRequested && session.IsConnected)
-                    {
-                        string? line = await session.Reader.ReadLineAsync();
-                        if (line == null) break; // client ngắt kết nối
-
-                        try
-                        {
-                            var msg = JsonSerializer.Deserialize<NetworkMessage>(line);
-                            if (msg != null)
-                            {
-                                Console.WriteLine($"[{session.ClientId}] → {msg.Type}: {msg.Payload}");
-                                OnMessageReceived?.Invoke(session.ClientId, msg);
-                            }
-                        }
-                        catch (JsonException ex)
-                        {
-                            Console.WriteLine($"Bad JSON from {session.ClientId}: " + ex.Message);
-                        }
-                    }
-                }
-                catch (OperationCanceledException) { }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Client {session.ClientId} error: " + ex.Message);
-                }
-                finally
-                {
-                    RemoveClient(session.ClientId);
-                }
-            }
-
-            // ── Gửi tới 1 client cụ thể ─────────────────────────────
-            public async Task SendToAsync(string clientId, NetworkMessage message)
-            {
-                if (_clients.TryGetValue(clientId, out var session))
-                {
-                    await session.SendAsync(message);
-                }
-            }
-
-            // ── Broadcast tới tất cả client ──────────────────────────
-            public async Task BroadcastAsync(NetworkMessage message)
-            {
-                foreach (var session in _clients.Values)
-                {
-                    await session.SendAsync(message);
-                }
-            }
-
-            // ── Broadcast trừ 1 client (ví dụ: gửi cho người khác) ──
-            public async Task BroadcastExceptAsync(string excludeClientId, NetworkMessage message)
-            {
-                foreach (var (id, session) in _clients)
-                {
-                    if (id != excludeClientId)
-                        await session.SendAsync(message);
-                }
-            }
-
-            // ── Remove client ────────────────────────────────────────
-            private void RemoveClient(string clientId)
-            {
-                if (_clients.TryRemove(clientId, out var session))
-                {
-                    session.Close();
-                    Console.WriteLine($"[-] Client {clientId} disconnected. ({_clients.Count} remaining)");
-                    OnClientDisconnected?.Invoke(clientId);
-                }
-            }
-
-            // ── Stop server ──────────────────────────────────────────
-            public void Stop()
-            {
-                lock (_lock)
-                {
-                    if (_listener == null) return;
-
-                    _cts?.Cancel();
-
-                    foreach (var session in _clients.Values)
-                        session.Close();
-
-                    _clients.Clear();
-
-                    try { _listener.Stop(); } catch { }
-                    _listener = null;
-
-                    Console.WriteLine("Server stopped.");
-                }
-            }
-
-            // ── Helper: lấy IP LAN ───────────────────────────────────
-            public static string GetLocalIP()
-            {
-                try
-                {
-                    using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0);
-                    socket.Connect("8.8.8.8", 65530);
-                    return (socket.LocalEndPoint as IPEndPoint)?.Address.ToString() ?? "unknown";
-                }
-                catch { return "unknown"; }
+                IsRunning = false;
+                Port = 0;
+                throw;
             }
         }
 
-        // ── ClientSession: đại diện cho 1 client đang kết nối ───────
-        public class ClientSession
+        public void Stop()
         {
-            public string ClientId { get; }
-            private readonly TcpClient _tcpClient;
-            public StreamReader Reader { get; }
-            private readonly StreamWriter _writer;
-            private readonly object _sendLock = new object();
+            if (!IsRunning) return;
 
-            public bool IsConnected => _tcpClient.Connected;
-
-            public ClientSession(string clientId, TcpClient tcpClient)
+            Log("Stopping server...");
+            foreach (var room in _rooms.Values)
             {
-                ClientId = clientId;
-                _tcpClient = tcpClient;
-
-                var stream = tcpClient.GetStream();
-                Reader = new StreamReader(stream, Encoding.UTF8);
-                _writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true };
+                lock (room.GameLock)
+                {
+                    room.IsGameActive = false;
+                }
             }
 
-            public async Task SendAsync(NetworkMessage message)
+            _cts?.Cancel();
+            _listener?.Stop();
+            try { _udpDiscovery?.Close(); } catch { }
+            try { _udpDiscovery?.Dispose(); } catch { }
+
+            foreach (var player in _players.Values)
+            {
+                player.Session.Disconnect();
+            }
+            _players.Clear();
+
+            _rooms.Clear();
+            var defaultRoom = new Room("default", "Default Room");
+            _rooms.TryAdd(defaultRoom.Id, defaultRoom);
+
+            IsRunning = false;
+            Port = 0;
+            Log("Server stopped.");
+            OnClientListChanged?.Invoke();
+            OnGameStateChanged?.Invoke();
+        }
+
+        private async Task AcceptClientsAsync(CancellationToken token)
+        {
+            while (!token.IsCancellationRequested)
             {
                 try
                 {
-                    string json = JsonSerializer.Serialize(message);
-                    await _writer.WriteLineAsync(json);
+                    if (_listener == null) break;
+                    TcpClient client = await _listener.AcceptTcpClientAsync(token);
+                    _ = Task.Run(() => HandleClientAsync(client, token));
+                }
+                catch (ObjectDisposedException)
+                {
+                    break;
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Send to {ClientId} failed: " + ex.Message);
+                    if (!token.IsCancellationRequested)
+                    {
+                        Log($"Error accepting client: {ex.Message}");
+                    }
                 }
             }
+        }
 
-            public void Close()
+        private async Task HandleClientAsync(TcpClient tcpClient, CancellationToken token)
+        {
+            string ipAddress = tcpClient.Client.RemoteEndPoint?.ToString() ?? "Unknown";
+            Log($"New connection attempt from {ipAddress}");
+
+            ClientSession session = new ClientSession(tcpClient);
+
+            try
             {
-                try { Reader.Dispose(); } catch { }
-                try { _writer.Dispose(); } catch { }
-                try { _tcpClient.Close(); } catch { }
+                while (!token.IsCancellationRequested && !session.Cts.Token.IsCancellationRequested)
+                {
+                    string? line = await session.Reader.ReadLineAsync(session.Cts.Token);
+                    if (line == null) break; // Client disconnected gracefully
+
+                    await ProcessMessageAsync(session, line);
+                }
+            }
+            catch (Exception ex)
+            {
+                if (!(ex is OperationCanceledException || ex is ObjectDisposedException || ex is IOException))
+                {
+                    Log($"Session error for {session.Username} ({ipAddress}): {ex.Message}");
+                }
+            }
+            finally
+            {
+                session.Disconnect();
+                if (_players.TryRemove(session.Id, out var player))
+                {
+                    Log($"Player {player.Username} ({ipAddress}) disconnected.");
+                    if (player.RoomId != null && _rooms.TryGetValue(player.RoomId, out var room))
+                    {
+                        room.RemovePlayer(player.Id);
+                        room.BroadcastPlayerList();
+                    }
+                    OnClientListChanged?.Invoke();
+                }
             }
         }
-    }
 
-    private async Task ProcessMessageAsync(ClientSession session, string messageJson)
+        private async Task ProcessMessageAsync(ClientSession session, string messageJson)
         {
             try
             {
