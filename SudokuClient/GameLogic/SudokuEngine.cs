@@ -1,6 +1,6 @@
 using System;
 
-namespace SudokuServer.Game
+namespace SudokuClient.GameLogic
 {
     public class SudokuEngine
     {
@@ -91,15 +91,72 @@ namespace SudokuServer.Game
 
         private void RemoveCells(int count)
         {
-            int removed = 0;
-            while (removed < count)
+            if (count > 81) count = 81;
+
+            int[] positions = new int[81];
+            for (int i = 0; i < 81; i++) positions[i] = i;
+
+            for (int i = 80; i > 0; i--)
             {
-                int r = _random.Next(9);
-                int c = _random.Next(9);
-                if (PlayerBoard[r, c] != 0)
+                int j = _random.Next(i + 1);
+                int temp = positions[i];
+                positions[i] = positions[j];
+                positions[j] = temp;
+            }
+
+            int removed = 0;
+            for (int i = 0; i < 81 && removed < count; i++)
+            {
+                int pos = positions[i];
+                int r = pos / 9;
+                int c = pos % 9;
+                
+                int backup = PlayerBoard[r, c];
+                PlayerBoard[r, c] = 0;
+
+                int solutions = 0;
+                CountSolutions(PlayerBoard, 0, 0, ref solutions);
+
+                if (solutions != 1)
                 {
-                    PlayerBoard[r, c] = 0;
+                    // Restore cell if removing it breaks uniqueness
+                    PlayerBoard[r, c] = backup;
+                }
+                else
+                {
                     removed++;
+                }
+            }
+        }
+
+        private void CountSolutions(int[,] board, int row, int col, ref int count)
+        {
+            if (count > 1) return; // Stop early if more than 1 solution
+
+            if (col >= 9)
+            {
+                col = 0;
+                row++;
+                if (row >= 9)
+                {
+                    count++;
+                    return;
+                }
+            }
+
+            if (board[row, col] != 0)
+            {
+                CountSolutions(board, row, col + 1, ref count);
+                return;
+            }
+
+            for (int num = 1; num <= 9; num++)
+            {
+                if (IsValid(board, row, col, num))
+                {
+                    board[row, col] = num;
+                    CountSolutions(board, row, col + 1, ref count);
+                    board[row, col] = 0;
                 }
             }
         }

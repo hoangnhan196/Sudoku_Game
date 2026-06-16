@@ -1,5 +1,8 @@
 using System;
 using System.Drawing;
+using System.Linq;
+using System.Net;
+using System.Net.Sockets;
 using System.Windows.Forms;
 using SudokuServer.Network;
 
@@ -39,10 +42,19 @@ namespace SudokuServer
                 }
             }
 
+            string ip = txtIP.Text.Trim();
+
             try
             {
-                _server.Start(port);
+                _server.Start(ip, port);
                 txtPort.Text = _server.Port.ToString();
+
+                // Auto-detect and display LAN IP for clients to use
+                string lanIp = GetLocalLanIP();
+                txtIP.Text = lanIp;
+                LogToConsole($"[INFO] Địa chỉ IP LAN của server: {lanIp}:{_server.Port}");
+                LogToConsole($"[INFO] Client hãy nhập IP: {lanIp} và Port: {_server.Port} để kết nối.");
+
                 UpdateUIState(true);
             }
             catch (Exception ex)
@@ -133,6 +145,7 @@ namespace SudokuServer
             btnStop.Enabled = isRunning;
             btnStartGame.Enabled = isRunning;
             txtPort.Enabled = !isRunning;
+            txtIP.Enabled = !isRunning;
             cmbDifficulty.Enabled = !isRunning;
 
             if (isRunning)
@@ -221,6 +234,38 @@ namespace SudokuServer
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// Gets the local LAN IP address (IPv4, non-loopback).
+        /// </summary>
+        private string GetLocalLanIP()
+        {
+            try
+            {
+                // Preferred method: open a UDP socket to detect the actual outgoing interface
+                using (var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp))
+                {
+                    socket.Connect("8.8.8.8", 80);
+                    if (socket.LocalEndPoint is IPEndPoint endPoint)
+                    {
+                        return endPoint.Address.ToString();
+                    }
+                }
+            }
+            catch { }
+
+            // Fallback: enumerate network interfaces
+            try
+            {
+                var host = Dns.GetHostEntry(Dns.GetHostName());
+                var lanIp = host.AddressList
+                    .FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork && !IPAddress.IsLoopback(a));
+                if (lanIp != null) return lanIp.ToString();
+            }
+            catch { }
+
+            return "127.0.0.1";
         }
     }
 }

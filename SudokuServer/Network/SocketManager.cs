@@ -81,6 +81,7 @@ namespace SudokuServer.Network
     {
         private TcpListener? _listener;
         private CancellationTokenSource? _cts;
+        private UdpClient? _udpDiscovery;
         private readonly ConcurrentDictionary<string, Player> _players = new();
         private readonly ConcurrentDictionary<string, Room> _rooms = new();
 
@@ -136,136 +137,226 @@ namespace SudokuServer.Network
 
         public List<ClientSession> GetClientsList() => _players.Values.Select(p => p.Session).ToList();
 
-        public void Start(int port)
+namespace SudokuServer.Network
+    {
+        public class NetworkServer
         {
-            if (IsRunning) return;
+            private TcpListener? _listener;
+            private CancellationTokenSource? _cts;
+            private readonly object _lock = new object();
 
-            _cts = new CancellationTokenSource();
-            _listener = new TcpListener(IPAddress.Any, port);
+            // Lưu tất cả client đang kết nối: key = clientId
+            private readonly ConcurrentDictionary<string, ClientSession> _clients = new();
 
-            try
+            private int _port = 9999;
+
+            // ── Events ──────────────────────────────────────────────
+            public event Action<string>? OnClientConnected;       // clientId
+            public event Action<string>? OnClientDisconnected;    // clientId
+            public event Action<string, NetworkMessage>? OnMessageReceived; // clientId, message
+
+            // ── State ────────────────────────────────────────────────
+            public bool IsRunning => _listener != null;
+            public int ClientCount => _clients.Count;
+
+            // ── Start ────────────────────────────────────────────────
+            public void Start(int port = 9999)
             {
+                _port = port;
+                _cts = new CancellationTokenSource();
+                _listener = new TcpListener(IPAddress.Any, _port); // ✅ nhận từ mọi IP trong LAN
                 _listener.Start();
-                Port = ((IPEndPoint)_listener.LocalEndpoint).Port;
-                IsRunning = true;
-                Log($"Server started on port {Port}. Listening for connections...");
+
+                Console.WriteLine($"Server started on port {_port}");
+                Console.WriteLine($"Local IP: {GetLocalIP()}");
+
+                // Vòng lặp chấp nhận client trên background thread
                 Task.Run(() => AcceptClientsAsync(_cts.Token));
             }
-            catch (Exception ex)
-            {
-                Log($"Error starting server: {ex.Message}");
 
-                try { _listener.Stop(); } catch { }
-                _listener = null;
-
-                try { _cts.Cancel(); } catch { }
-                try { _cts.Dispose(); } catch { }
-                _cts = null;
-
-                IsRunning = false;
-                Port = 0;
-                throw;
-            }
-        }
-
-        public void Stop()
-        {
-            if (!IsRunning) return;
-
-            Log("Stopping server...");
-            foreach (var room in _rooms.Values)
-            {
-                lock (room.GameLock)
-                {
-                    room.IsGameActive = false;
-                }
-            }
-
-            _cts?.Cancel();
-            _listener?.Stop();
-
-            foreach (var player in _players.Values)
-            {
-                player.Session.Disconnect();
-            }
-            _players.Clear();
-
-            _rooms.Clear();
-            var defaultRoom = new Room("default", "Default Room");
-            _rooms.TryAdd(defaultRoom.Id, defaultRoom);
-
-            IsRunning = false;
-            Port = 0;
-            Log("Server stopped.");
-            OnClientListChanged?.Invoke();
-            OnGameStateChanged?.Invoke();
-        }
-
-        private async Task AcceptClientsAsync(CancellationToken token)
-        {
-            while (!token.IsCancellationRequested)
+            // ── Accept clients ───────────────────────────────────────
+            private async Task AcceptClientsAsync(CancellationToken token)
             {
                 try
                 {
-                    if (_listener == null) break;
-                    TcpClient client = await _listener.AcceptTcpClientAsync(token);
-                    _ = Task.Run(() => HandleClientAsync(client, token));
+                    while (!token.IsCancellationRequested && _listener != null)
+                    {
+                        TcpClient tcpClient = await _listener.AcceptTcpClientAsync(token);
+                        string clientId = Guid.NewGuid().ToString("N")[..8]; // ID ngắn gọn
+
+                        var session = new ClientSession(clientId, tcpClient);
+                        _clients[clientId] = session;
+
+                        Console.WriteLine($"[+] Client {clientId} connected from {tcpClient.Client.RemoteEndPoint}");
+                        OnClientConnected?.Invoke(clientId);
+
+                        // Mỗi client chạy trên task riêng
+                        Task.Run(() => HandleClientAsync(session, token));
+                    }
                 }
-                catch (ObjectDisposedException)
+                catch (OperationCanceledException)
                 {
-                    break;
+                    // Server đang stop → bình thường
                 }
                 catch (Exception ex)
                 {
-                    if (!token.IsCancellationRequested)
+                    Console.WriteLine("Accept error: " + ex.Message);
+                }
+            }
+
+            // ── Handle từng client ───────────────────────────────────
+            private async Task HandleClientAsync(ClientSession session, CancellationToken token)
+            {
+                try
+                {
+                    while (!token.IsCancellationRequested && session.IsConnected)
                     {
-                        Log($"Error accepting client: {ex.Message}");
+                        string? line = await session.Reader.ReadLineAsync();
+                        if (line == null) break; // client ngắt kết nối
+
+                        try
+                        {
+                            var msg = JsonSerializer.Deserialize<NetworkMessage>(line);
+                            if (msg != null)
+                            {
+                                Console.WriteLine($"[{session.ClientId}] → {msg.Type}: {msg.Payload}");
+                                OnMessageReceived?.Invoke(session.ClientId, msg);
+                            }
+                        }
+                        catch (JsonException ex)
+                        {
+                            Console.WriteLine($"Bad JSON from {session.ClientId}: " + ex.Message);
+                        }
                     }
                 }
+                catch (OperationCanceledException) { }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Client {session.ClientId} error: " + ex.Message);
+                }
+                finally
+                {
+                    RemoveClient(session.ClientId);
+                }
+            }
+
+            // ── Gửi tới 1 client cụ thể ─────────────────────────────
+            public async Task SendToAsync(string clientId, NetworkMessage message)
+            {
+                if (_clients.TryGetValue(clientId, out var session))
+                {
+                    await session.SendAsync(message);
+                }
+            }
+
+            // ── Broadcast tới tất cả client ──────────────────────────
+            public async Task BroadcastAsync(NetworkMessage message)
+            {
+                foreach (var session in _clients.Values)
+                {
+                    await session.SendAsync(message);
+                }
+            }
+
+            // ── Broadcast trừ 1 client (ví dụ: gửi cho người khác) ──
+            public async Task BroadcastExceptAsync(string excludeClientId, NetworkMessage message)
+            {
+                foreach (var (id, session) in _clients)
+                {
+                    if (id != excludeClientId)
+                        await session.SendAsync(message);
+                }
+            }
+
+            // ── Remove client ────────────────────────────────────────
+            private void RemoveClient(string clientId)
+            {
+                if (_clients.TryRemove(clientId, out var session))
+                {
+                    session.Close();
+                    Console.WriteLine($"[-] Client {clientId} disconnected. ({_clients.Count} remaining)");
+                    OnClientDisconnected?.Invoke(clientId);
+                }
+            }
+
+            // ── Stop server ──────────────────────────────────────────
+            public void Stop()
+            {
+                lock (_lock)
+                {
+                    if (_listener == null) return;
+
+                    _cts?.Cancel();
+
+                    foreach (var session in _clients.Values)
+                        session.Close();
+
+                    _clients.Clear();
+
+                    try { _listener.Stop(); } catch { }
+                    _listener = null;
+
+                    Console.WriteLine("Server stopped.");
+                }
+            }
+
+            // ── Helper: lấy IP LAN ───────────────────────────────────
+            public static string GetLocalIP()
+            {
+                try
+                {
+                    using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0);
+                    socket.Connect("8.8.8.8", 65530);
+                    return (socket.LocalEndPoint as IPEndPoint)?.Address.ToString() ?? "unknown";
+                }
+                catch { return "unknown"; }
             }
         }
 
-        private async Task HandleClientAsync(TcpClient tcpClient, CancellationToken token)
+        // ── ClientSession: đại diện cho 1 client đang kết nối ───────
+        public class ClientSession
         {
-            string ipAddress = tcpClient.Client.RemoteEndPoint?.ToString() ?? "Unknown";
-            Log($"New connection attempt from {ipAddress}");
+            public string ClientId { get; }
+            private readonly TcpClient _tcpClient;
+            public StreamReader Reader { get; }
+            private readonly StreamWriter _writer;
+            private readonly object _sendLock = new object();
 
-            ClientSession session = new ClientSession(tcpClient);
+            public bool IsConnected => _tcpClient.Connected;
 
-            try
+            public ClientSession(string clientId, TcpClient tcpClient)
             {
-                while (!token.IsCancellationRequested && !session.Cts.Token.IsCancellationRequested)
-                {
-                    string? line = await session.Reader.ReadLineAsync(session.Cts.Token);
-                    if (line == null) break; // Client disconnected gracefully
+                ClientId = clientId;
+                _tcpClient = tcpClient;
 
-                    await ProcessMessageAsync(session, line);
+                var stream = tcpClient.GetStream();
+                Reader = new StreamReader(stream, Encoding.UTF8);
+                _writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true };
+            }
+
+            public async Task SendAsync(NetworkMessage message)
+            {
+                try
+                {
+                    string json = JsonSerializer.Serialize(message);
+                    await _writer.WriteLineAsync(json);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Send to {ClientId} failed: " + ex.Message);
                 }
             }
-            catch (Exception ex)
+
+            public void Close()
             {
-                if (!(ex is OperationCanceledException || ex is ObjectDisposedException || ex is IOException))
-                {
-                    Log($"Session error for {session.Username} ({ipAddress}): {ex.Message}");
-                }
-            }
-            finally
-            {
-                session.Disconnect();
-                if (_players.TryRemove(session.Id, out var player))
-                {
-                    Log($"Player {player.Username} ({ipAddress}) disconnected.");
-                    if (player.RoomId != null && _rooms.TryGetValue(player.RoomId, out var room))
-                    {
-                        room.RemovePlayer(player.Id);
-                        room.BroadcastPlayerList();
-                    }
-                    OnClientListChanged?.Invoke();
-                }
+                try { Reader.Dispose(); } catch { }
+                try { _writer.Dispose(); } catch { }
+                try { _tcpClient.Close(); } catch { }
             }
         }
+    }
 
-        private async Task ProcessMessageAsync(ClientSession session, string messageJson)
+    private async Task ProcessMessageAsync(ClientSession session, string messageJson)
         {
             try
             {
@@ -385,7 +476,6 @@ namespace SudokuServer.Network
                                     bool isCorrect = false;
                                     bool alreadySolved = false;
                                     bool isFinished = false;
-                                    bool shouldKick = false;
 
                                     lock (playRoom.GameLock)
                                     {
@@ -403,17 +493,13 @@ namespace SudokuServer.Network
                                             if (isCorrect)
                                             {
                                                 playRoom.Engine.ApplyMove(r, c, val);
-                                                movingPlayer.Score += 10;
-                                                Log($"'{movingPlayer.Username}' placed {val} at ({r}, {c}) - CORRECT (+10 pts) in Room '{playRoom.Name}'");
+                                                movingPlayer.Score += 1; // Track correct cells count
+                                                Log($"'{movingPlayer.Username}' placed {val} at ({r}, {c}) - CORRECT in Room '{playRoom.Name}'");
                                             }
                                             else
                                             {
-                                                movingPlayer.Score = Math.Max(0, movingPlayer.Score - 5); // Prevent negative score
-                                                Log($"'{movingPlayer.Username}' placed {val} at ({r}, {c}) - INCORRECT (-5 pts) in Room '{playRoom.Name}'");
-                                                if (movingPlayer.Score == 0)
-                                                {
-                                                    shouldKick = true;
-                                                }
+                                                movingPlayer.PenaltySeconds += 15; // +15s penalty
+                                                Log($"'{movingPlayer.Username}' placed {val} at ({r}, {c}) - INCORRECT (+15s penalty) in Room '{playRoom.Name}'");
                                             }
 
                                             isFinished = playRoom.Engine.IsGameFinished();
@@ -438,7 +524,7 @@ namespace SudokuServer.Network
                                         Value = val,
                                         PlayerId = movingPlayer.Id,
                                         Username = movingPlayer.Username,
-                                        Score = movingPlayer.Score,
+                                        Score = movingPlayer.PenaltySeconds, // Send penalty as "Score" field for display
                                         Correct = isCorrect
                                     });
 
@@ -449,18 +535,6 @@ namespace SudokuServer.Network
                                     {
                                         playRoom.EndGame();
                                         OnGameStateChanged?.Invoke();
-                                    }
-
-                                    if (shouldKick)
-                                    {
-                                        playRoom.Broadcast(new NetworkMessage
-                                        {
-                                            Type = "SERVER_CHAT",
-                                            Username = "System",
-                                            ChatText = $"Player '{movingPlayer.Username}' was kicked for reaching 0 points!"
-                                        });
-                                        Log($"Player '{movingPlayer.Username}' was kicked for reaching 0 points.");
-                                        movingPlayer.Session.Disconnect();
                                     }
                                 }
                             }
@@ -624,6 +698,25 @@ namespace SudokuServer.Network
                             break;
                         }
 
+                    case "CLIENT_START_GAME":
+                        {
+                            if (_players.TryGetValue(session.Id, out var starter) && starter.RoomId != null)
+                            {
+                                if (_rooms.TryGetValue(starter.RoomId, out var playRoom))
+                                {
+                                    // Verify that only the room creator or default lobby logic applies
+                                    if (playRoom.CreatorId == starter.Id || starter.RoomId == "default")
+                                    {
+                                        int cellsToRemove = msg.Value ?? 42; // Fallback to medium
+                                        Log($"Player '{starter.Username}' started a game in room '{playRoom.Name}'. Difficulty: {cellsToRemove} cells removed.");
+                                        playRoom.StartGame(cellsToRemove);
+                                        OnGameStateChanged?.Invoke();
+                                    }
+                                }
+                            }
+                            break;
+                        }
+
                     case "CLIENT_GET_ROOMS":
                         {
                             var roomsData = _rooms.Values.Select(r => new RoomData
@@ -684,6 +777,50 @@ namespace SudokuServer.Network
             OnLog?.Invoke($"[{time}] {message}");
         }
 
+        private void StartUdpDiscovery(CancellationToken token)
+        {
+            try
+            {
+                _udpDiscovery = new UdpClient(10000);
+                
+                // Disable WSAECONNRESET
+                const int SIO_UDP_CONNRESET = -1744830452;
+                _udpDiscovery.Client.IOControl((System.Net.Sockets.IOControlCode)SIO_UDP_CONNRESET, new byte[] { 0, 0, 0, 0 }, null);
+
+                Task.Run(async () =>
+                {
+                    while (!token.IsCancellationRequested)
+                    {
+                        try
+                        {
+                            var result = await _udpDiscovery.ReceiveAsync();
+                            string msg = Encoding.UTF8.GetString(result.Buffer);
+                            if (msg == "SUDOKU_DISCOVER")
+                            {
+                                string response = $"SUDOKU_SERVER|{Port}";
+                                byte[] responseBytes = Encoding.UTF8.GetBytes(response);
+                                await _udpDiscovery.SendAsync(responseBytes, responseBytes.Length, result.RemoteEndPoint);
+                                Log($"Responded to discovery request from {result.RemoteEndPoint.Address}");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            if (!token.IsCancellationRequested)
+                            {
+                                // ObjectDisposedException is expected when stopping
+                                if (!(ex is ObjectDisposedException || ex is SocketException))
+                                    Log($"UDP Discovery error: {ex.Message}");
+                            }
+                        }
+                    }
+                }, token);
+            }
+            catch (Exception ex)
+            {
+                Log($"Failed to start UDP Discovery on port 10000: {ex.Message}");
+            }
+        }
+
         private int[][] ConvertToJagged(int[,] array2D)
         {
             int[][] jagged = new int[9][];
@@ -725,6 +862,7 @@ namespace SudokuServer.Network
         public string Id { get; set; } = string.Empty;
         public string Username { get; set; } = string.Empty;
         public int Score { get; set; }
+        public int PenaltySeconds { get; set; }
         public bool IsReady { get; set; }
     }
 
