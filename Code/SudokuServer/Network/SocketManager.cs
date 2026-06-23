@@ -81,6 +81,8 @@ namespace SudokuServer.Network
     {
         private TcpListener? _listener;
         private CancellationTokenSource? _cts;
+        private UdpClient? _udpDiscovery;
+
         private readonly ConcurrentDictionary<string, Player> _players = new();
         private readonly ConcurrentDictionary<string, Room> _rooms = new();
 
@@ -136,20 +138,33 @@ namespace SudokuServer.Network
 
         public List<ClientSession> GetClientsList() => _players.Values.Select(p => p.Session).ToList();
 
-        public void Start(int port)
+        public void Start(string ipAddress, int port)
         {
             if (IsRunning) return;
 
             _cts = new CancellationTokenSource();
-            _listener = new TcpListener(IPAddress.Any, port);
+
+            IPAddress ip = IPAddress.Any;
+            if (!string.IsNullOrWhiteSpace(ipAddress))
+            {
+                if (!IPAddress.TryParse(ipAddress, out IPAddress? parsedIp) || parsedIp == null)
+                {
+                    throw new ArgumentException("Invalid IP address format.");
+                }
+                ip = parsedIp;
+            }
+
+            _listener = new TcpListener(ip, port);
 
             try
             {
                 _listener.Start();
                 Port = ((IPEndPoint)_listener.LocalEndpoint).Port;
                 IsRunning = true;
-                Log($"Server started on port {Port}. Listening for connections...");
+                string boundIp = ip.Equals(IPAddress.Any) ? "Any" : ip.ToString();
+                Log($"Server started on IP {boundIp}, port {Port}. Listening for connections...");
                 Task.Run(() => AcceptClientsAsync(_cts.Token));
+                StartUdpDiscovery(_cts.Token);
             }
             catch (Exception ex)
             {
@@ -183,6 +198,9 @@ namespace SudokuServer.Network
 
             _cts?.Cancel();
             _listener?.Stop();
+            try { _udpDiscovery?.Close(); } catch { }
+            try { _udpDiscovery?.Dispose(); } catch { }
+
 
             foreach (var player in _players.Values)
             {
@@ -385,7 +403,6 @@ namespace SudokuServer.Network
                                     bool isCorrect = false;
                                     bool alreadySolved = false;
                                     bool isFinished = false;
-                                    bool shouldKick = false;
 
                                     lock (playRoom.GameLock)
                                     {
@@ -403,17 +420,13 @@ namespace SudokuServer.Network
                                             if (isCorrect)
                                             {
                                                 playRoom.Engine.ApplyMove(r, c, val);
-                                                movingPlayer.Score += 10;
-                                                Log($"'{movingPlayer.Username}' placed {val} at ({r}, {c}) - CORRECT (+10 pts) in Room '{playRoom.Name}'");
+                                                movingPlayer.Score += 1; // Track correct cells count
+                                                Log($"'{movingPlayer.Username}' placed {val} at ({r}, {c}) - CORRECT in Room '{playRoom.Name}'");
                                             }
                                             else
                                             {
-                                                movingPlayer.Score = Math.Max(0, movingPlayer.Score - 5); // Prevent negative score
-                                                Log($"'{movingPlayer.Username}' placed {val} at ({r}, {c}) - INCORRECT (-5 pts) in Room '{playRoom.Name}'");
-                                                if (movingPlayer.Score == 0)
-                                                {
-                                                    shouldKick = true;
-                                                }
+                                                movingPlayer.PenaltySeconds += 15; // +15s penalty
+                                                Log($"'{movingPlayer.Username}' placed {val} at ({r}, {c}) - INCORRECT (+15s penalty) in Room '{playRoom.Name}'");
                                             }
 
                                             isFinished = playRoom.Engine.IsGameFinished();
@@ -438,7 +451,7 @@ namespace SudokuServer.Network
                                         Value = val,
                                         PlayerId = movingPlayer.Id,
                                         Username = movingPlayer.Username,
-                                        Score = movingPlayer.Score,
+                                        Score = movingPlayer.PenaltySeconds, // Send penalty as "Score" field for display
                                         Correct = isCorrect
                                     });
 
@@ -449,18 +462,6 @@ namespace SudokuServer.Network
                                     {
                                         playRoom.EndGame();
                                         OnGameStateChanged?.Invoke();
-                                    }
-
-                                    if (shouldKick)
-                                    {
-                                        playRoom.Broadcast(new NetworkMessage
-                                        {
-                                            Type = "SERVER_CHAT",
-                                            Username = "System",
-                                            ChatText = $"Player '{movingPlayer.Username}' was kicked for reaching 0 points!"
-                                        });
-                                        Log($"Player '{movingPlayer.Username}' was kicked for reaching 0 points.");
-                                        movingPlayer.Session.Disconnect();
                                     }
                                 }
                             }
@@ -624,6 +625,25 @@ namespace SudokuServer.Network
                             break;
                         }
 
+                    case "CLIENT_START_GAME":
+                        {
+                            if (_players.TryGetValue(session.Id, out var starter) && starter.RoomId != null)
+                            {
+                                if (_rooms.TryGetValue(starter.RoomId, out var playRoom))
+                                {
+                                    // Verify that only the room creator or default lobby logic applies
+                                    if (playRoom.CreatorId == starter.Id || starter.RoomId == "default")
+                                    {
+                                        int cellsToRemove = msg.Value ?? 42; // Fallback to medium
+                                        Log($"Player '{starter.Username}' started a game in room '{playRoom.Name}'. Difficulty: {cellsToRemove} cells removed.");
+                                        playRoom.StartGame(cellsToRemove);
+                                        OnGameStateChanged?.Invoke();
+                                    }
+                                }
+                            }
+                            break;
+                        }
+
                     case "CLIENT_GET_ROOMS":
                         {
                             var roomsData = _rooms.Values.Select(r => new RoomData
@@ -684,6 +704,50 @@ namespace SudokuServer.Network
             OnLog?.Invoke($"[{time}] {message}");
         }
 
+        private void StartUdpDiscovery(CancellationToken token)
+        {
+            try
+            {
+                _udpDiscovery = new UdpClient(10000);
+                
+                // Disable WSAECONNRESET
+                const int SIO_UDP_CONNRESET = -1744830452;
+                _udpDiscovery.Client.IOControl((System.Net.Sockets.IOControlCode)SIO_UDP_CONNRESET, new byte[] { 0, 0, 0, 0 }, null);
+
+                Task.Run(async () =>
+                {
+                    while (!token.IsCancellationRequested)
+                    {
+                        try
+                        {
+                            var result = await _udpDiscovery.ReceiveAsync();
+                            string msg = Encoding.UTF8.GetString(result.Buffer);
+                            if (msg == "SUDOKU_DISCOVER")
+                            {
+                                string response = $"SUDOKU_SERVER|{Port}";
+                                byte[] responseBytes = Encoding.UTF8.GetBytes(response);
+                                await _udpDiscovery.SendAsync(responseBytes, responseBytes.Length, result.RemoteEndPoint);
+                                Log($"Responded to discovery request from {result.RemoteEndPoint.Address}");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            if (!token.IsCancellationRequested)
+                            {
+                                // ObjectDisposedException is expected when stopping
+                                if (!(ex is ObjectDisposedException || ex is SocketException))
+                                    Log($"UDP Discovery error: {ex.Message}");
+                            }
+                        }
+                    }
+                }, token);
+            }
+            catch (Exception ex)
+            {
+                Log($"Failed to start UDP Discovery on port 10000: {ex.Message}");
+            }
+        }
+
         private int[][] ConvertToJagged(int[,] array2D)
         {
             int[][] jagged = new int[9][];
@@ -725,6 +789,7 @@ namespace SudokuServer.Network
         public string Id { get; set; } = string.Empty;
         public string Username { get; set; } = string.Empty;
         public int Score { get; set; }
+        public int PenaltySeconds { get; set; }
         public bool IsReady { get; set; }
     }
 
