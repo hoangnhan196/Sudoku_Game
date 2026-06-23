@@ -46,6 +46,8 @@ namespace SudokuServer
             this.pnlCenter = new System.Windows.Forms.Panel();
             this.rtbLog = new System.Windows.Forms.RichTextBox();
             this.lblLog = new System.Windows.Forms.Label();
+            this.lblIP = new System.Windows.Forms.Label();
+            this.txtIP = new System.Windows.Forms.TextBox();
             this.pnlTop.SuspendLayout();
             this.pnlLeft.SuspendLayout();
             this.pnlRight.SuspendLayout();
@@ -63,6 +65,8 @@ namespace SudokuServer
             this.pnlTop.Controls.Add(this.btnStart);
             this.pnlTop.Controls.Add(this.txtPort);
             this.pnlTop.Controls.Add(this.lblPort);
+            this.pnlTop.Controls.Add(this.lblIP);
+            this.pnlTop.Controls.Add(this.txtIP);
             this.pnlTop.Dock = System.Windows.Forms.DockStyle.Top;
             this.pnlTop.Location = new System.Drawing.Point(0, 0);
             this.pnlTop.Name = "pnlTop";
@@ -74,7 +78,7 @@ namespace SudokuServer
             this.lblStatus.AutoSize = true;
             this.lblStatus.Font = new System.Drawing.Font("Segoe UI", 11F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
             this.lblStatus.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(220)))), ((int)(((byte)(53)))), ((int)(((byte)(69)))));
-            this.lblStatus.Location = new System.Drawing.Point(780, 25);
+            this.lblStatus.Location = new System.Drawing.Point(857, 25);
             this.lblStatus.Name = "lblStatus";
             this.lblStatus.Size = new System.Drawing.Size(126, 20);
             this.lblStatus.TabIndex = 7;
@@ -92,8 +96,9 @@ namespace SudokuServer
             "Medium (42 blank cells)",
             "Hard (52 blank cells)",
             "Expert (62 blank cells)",
-            "Evil (72 blank cells)"});
-            this.cmbDifficulty.Location = new System.Drawing.Point(460, 22);
+            "Evil (72 blank cells)",
+            "Master (78 blank cells)"});
+            this.cmbDifficulty.Location = new System.Drawing.Point(557, 22);
             this.cmbDifficulty.Name = "cmbDifficulty";
             this.cmbDifficulty.Size = new System.Drawing.Size(160, 25);
             this.cmbDifficulty.TabIndex = 6;
@@ -103,7 +108,7 @@ namespace SudokuServer
             this.lblDifficulty.AutoSize = true;
             this.lblDifficulty.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
             this.lblDifficulty.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(210)))));
-            this.lblDifficulty.Location = new System.Drawing.Point(388, 25);
+            this.lblDifficulty.Location = new System.Drawing.Point(485, 25);
             this.lblDifficulty.Name = "lblDifficulty";
             this.lblDifficulty.Size = new System.Drawing.Size(66, 19);
             this.lblDifficulty.TabIndex = 5;
@@ -117,7 +122,7 @@ namespace SudokuServer
             this.btnStartGame.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnStartGame.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
             this.btnStartGame.ForeColor = System.Drawing.Color.White;
-            this.btnStartGame.Location = new System.Drawing.Point(630, 20);
+            this.btnStartGame.Location = new System.Drawing.Point(727, 20);
             this.btnStartGame.Name = "btnStartGame";
             this.btnStartGame.Size = new System.Drawing.Size(120, 30);
             this.btnStartGame.TabIndex = 4;
@@ -133,7 +138,7 @@ namespace SudokuServer
             this.btnStop.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnStop.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
             this.btnStop.ForeColor = System.Drawing.Color.White;
-            this.btnStop.Location = new System.Drawing.Point(260, 20);
+            this.btnStop.Location = new System.Drawing.Point(385, 20);
             this.btnStop.Name = "btnStop";
             this.btnStop.Size = new System.Drawing.Size(90, 30);
             this.btnStop.TabIndex = 3;
@@ -148,7 +153,7 @@ namespace SudokuServer
             this.btnStart.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnStart.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
             this.btnStart.ForeColor = System.Drawing.Color.White;
-            this.btnStart.Location = new System.Drawing.Point(160, 20);
+            this.btnStart.Location = new System.Drawing.Point(285, 20);
             this.btnStart.Name = "btnStart";
             this.btnStart.Size = new System.Drawing.Size(90, 30);
             this.btnStart.TabIndex = 2;
@@ -162,7 +167,7 @@ namespace SudokuServer
             this.txtPort.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.txtPort.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
             this.txtPort.ForeColor = System.Drawing.Color.White;
-            this.txtPort.Location = new System.Drawing.Point(60, 22);
+            this.txtPort.Location = new System.Drawing.Point(195, 22);
             this.txtPort.Name = "txtPort";
             this.txtPort.Size = new System.Drawing.Size(80, 25);
             this.txtPort.TabIndex = 1;
@@ -173,11 +178,34 @@ namespace SudokuServer
             this.lblPort.AutoSize = true;
             this.lblPort.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
             this.lblPort.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(210)))));
-            this.lblPort.Location = new System.Drawing.Point(20, 25);
+            this.lblPort.Location = new System.Drawing.Point(155, 25);
             this.lblPort.Name = "lblPort";
             this.lblPort.Size = new System.Drawing.Size(37, 19);
             this.lblPort.TabIndex = 0;
             this.lblPort.Text = "Port:";
+            // 
+            // lblIP
+            // 
+            this.lblIP.AutoSize = true;
+            this.lblIP.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
+            this.lblIP.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(210)))));
+            this.lblIP.Location = new System.Drawing.Point(20, 25);
+            this.lblIP.Name = "lblIP";
+            this.lblIP.Size = new System.Drawing.Size(24, 19);
+            this.lblIP.TabIndex = 8;
+            this.lblIP.Text = "IP:";
+            // 
+            // txtIP
+            // 
+            this.txtIP.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(56)))));
+            this.txtIP.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.txtIP.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
+            this.txtIP.ForeColor = System.Drawing.Color.White;
+            this.txtIP.Location = new System.Drawing.Point(45, 22);
+            this.txtIP.Name = "txtIP";
+            this.txtIP.Size = new System.Drawing.Size(100, 25);
+            this.txtIP.TabIndex = 9;
+            this.txtIP.Text = "";
             // 
             // pnlLeft
             // 
@@ -334,5 +362,7 @@ namespace SudokuServer
         private System.Windows.Forms.Panel pnlCenter;
         private System.Windows.Forms.RichTextBox rtbLog;
         private System.Windows.Forms.Label lblLog;
+        private System.Windows.Forms.Label lblIP;
+        private System.Windows.Forms.TextBox txtIP;
     }
 }

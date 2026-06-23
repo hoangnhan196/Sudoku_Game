@@ -16,6 +16,7 @@ namespace SudokuServer.Models
             get => Session.Score;
             set => Session.Score = value;
         }
+        public int PenaltySeconds { get; set; } = 0;
         public bool IsReady
         {
             get => Session.IsReady;
