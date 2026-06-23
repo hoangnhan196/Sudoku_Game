@@ -16,6 +16,7 @@ namespace SudokuServer.Models
         public bool IsGameActive { get; set; } = false;
         public object GameLock { get; } = new object();
         public string? CreatorId { get; set; }
+        public DateTime GameStartTime { get; set; }
 
         public Room(string id, string name)
         {
@@ -27,6 +28,7 @@ namespace SudokuServer.Models
         {
             player.RoomId = Id;
             player.Score = 0;
+            player.PenaltySeconds = 0;
             player.IsReady = false;
             return Players.TryAdd(player.Id, player);
         }
@@ -56,6 +58,7 @@ namespace SudokuServer.Models
                 Id = p.Id,
                 Username = p.Username,
                 Score = p.Score,
+                PenaltySeconds = p.PenaltySeconds,
                 IsReady = p.IsReady
             }).ToList();
 
@@ -68,50 +71,85 @@ namespace SudokuServer.Models
 
         public void StartGame(int cellsToRemove)
         {
-            int[][] boardJagged;
-            lock (GameLock)
+            // Run countdown + game start on background thread to not block
+            Task.Run(async () =>
             {
-                Engine.GenerateNewGame(cellsToRemove);
-                IsGameActive = true;
-
-                // Reset player scores
-                foreach (var player in Players.Values)
+                // Countdown 3-2-1
+                for (int i = 3; i >= 1; i--)
                 {
-                    player.Score = 0;
+                    Broadcast(new NetworkMessage
+                    {
+                        Type = "SERVER_COUNTDOWN",
+                        Message = $"⏳ Game bắt đầu sau {i} giây..."
+                    });
+                    await Task.Delay(1000);
                 }
 
-                boardJagged = ConvertToJagged(Engine.PlayerBoard);
-            }
+                int[][] boardJagged;
+                lock (GameLock)
+                {
+                    Engine.GenerateNewGame(cellsToRemove);
+                    IsGameActive = true;
+                    GameStartTime = DateTime.UtcNow;
 
-            Broadcast(new NetworkMessage
-            {
-                Type = "SERVER_START_GAME",
-                Board = boardJagged
+                    // Reset player penalties
+                    foreach (var player in Players.Values)
+                    {
+                        player.Score = 0;
+                        player.PenaltySeconds = 0;
+                    }
+
+                    boardJagged = ConvertToJagged(Engine.PlayerBoard);
+                }
+
+                Broadcast(new NetworkMessage
+                {
+                    Type = "SERVER_START_GAME",
+                    Board = boardJagged
+                });
+
+                BroadcastPlayerList();
             });
-
-            BroadcastPlayerList();
         }
 
         public void EndGame()
         {
+            double elapsedSeconds;
             lock (GameLock)
             {
                 IsGameActive = false;
+                elapsedSeconds = (DateTime.UtcNow - GameStartTime).TotalSeconds;
             }
 
-            // Find winner (highest score)
-            var sortedPlayers = Players.Values.OrderByDescending(p => p.Score).ToList();
-            string winnerName = sortedPlayers.FirstOrDefault()?.Username ?? "None";
+            // Rank by lowest total time (elapsed + penalty)
+            var sortedPlayers = Players.Values
+                .OrderBy(p => elapsedSeconds + p.PenaltySeconds)
+                .ToList();
+            var winner = sortedPlayers.FirstOrDefault();
+            int elapsedMin = (int)elapsedSeconds / 60;
+            int elapsedSec = (int)elapsedSeconds % 60;
+
+            string resultLines = "";
+            foreach (var p in sortedPlayers)
+            {
+                double total = elapsedSeconds + p.PenaltySeconds;
+                int tMin = (int)total / 60;
+                int tSec = (int)total % 60;
+                resultLines += $"\n  {p.Username}: {tMin:D2}:{tSec:D2} (phạt +{p.PenaltySeconds}s)";
+            }
+
+            string winnerName = winner?.Username ?? "None";
 
             Broadcast(new NetworkMessage
             {
                 Type = "SERVER_GAME_OVER",
-                Message = $"Game completed! Winner: {winnerName}",
+                Message = $"Hoàn thành! Thời gian: {elapsedMin:D2}:{elapsedSec:D2}\nNgười thắng: {winnerName}{resultLines}",
                 Players = sortedPlayers.Select(p => new PlayerData
                 {
                     Id = p.Id,
                     Username = p.Username,
                     Score = p.Score,
+                    PenaltySeconds = p.PenaltySeconds,
                     IsReady = p.IsReady
                 }).ToList()
             });
