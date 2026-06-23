@@ -8,6 +8,7 @@ namespace SudokuServer
     public partial class SudokuServer : Form
     {
         private SocketManager? _server;
+        private const int MaxLogLines = 500; // ✅ FIX 1: Giới hạn số dòng log
 
         public SudokuServer()
         {
@@ -90,6 +91,16 @@ namespace SudokuServer
                 return;
             }
 
+            // ✅ FIX 1: Trim log khi vượt quá giới hạn, tránh RAM tăng mãi
+            if (rtbLog.Lines.Length > MaxLogLines)
+            {
+                // Xóa nửa đầu, giữ lại nửa sau (mới hơn)
+                int keepFrom = rtbLog.Lines.Length - (MaxLogLines / 2);
+                string[] keepLines = new string[rtbLog.Lines.Length - keepFrom];
+                Array.Copy(rtbLog.Lines, keepFrom, keepLines, 0, keepLines.Length);
+                rtbLog.Lines = keepLines;
+            }
+
             rtbLog.AppendText(message + Environment.NewLine);
             rtbLog.SelectionStart = rtbLog.Text.Length;
             rtbLog.ScrollToCaret();
@@ -165,9 +176,7 @@ namespace SudokuServer
             {
                 for (int i = 1; i < 9; i++)
                 {
-                    // vertical line
                     g.DrawLine(thinPen, i * cellWidth, 0, i * cellWidth, height);
-                    // horizontal line
                     g.DrawLine(thinPen, 0, i * cellHeight, width, i * cellHeight);
                 }
             }
@@ -175,21 +184,15 @@ namespace SudokuServer
             // Draw thick 3x3 block borders and outer border
             using (Pen thickPen = new Pen(Color.FromArgb(120, 120, 140), 3))
             {
-                // Vertical block lines
                 g.DrawLine(thickPen, 3 * cellWidth, 0, 3 * cellWidth, height);
                 g.DrawLine(thickPen, 6 * cellWidth, 0, 6 * cellWidth, height);
-
-                // Horizontal block lines
                 g.DrawLine(thickPen, 0, 3 * cellHeight, width, 3 * cellHeight);
                 g.DrawLine(thickPen, 0, 6 * cellHeight, width, 6 * cellHeight);
-
-                // Outer border
                 g.DrawRectangle(thickPen, 0, 0, width - 1, height - 1);
             }
 
             if (_server == null || !_server.IsGameActive)
             {
-                // Draw "No Active Game" text
                 string emptyMsg = "No Active Game";
                 using (Font font = new Font("Segoe UI", 14, FontStyle.Bold))
                 using (Brush brush = new SolidBrush(Color.FromArgb(100, 100, 120)))
@@ -200,7 +203,6 @@ namespace SudokuServer
                 return;
             }
 
-            // Draw numbers
             int[,] board = _server.GetPlayerBoard();
             using (Font font = new Font("Segoe UI", 14, FontStyle.Bold))
             using (Brush textBrush = new SolidBrush(Color.FromArgb(240, 240, 250)))
@@ -225,7 +227,6 @@ namespace SudokuServer
 
         private void tableLayoutPanel1_Paint(object sender, PaintEventArgs e)
         {
-
         }
     }
 }

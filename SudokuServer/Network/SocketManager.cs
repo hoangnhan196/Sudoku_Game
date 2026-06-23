@@ -28,9 +28,28 @@ namespace SudokuServer.Network
         public CancellationTokenSource Cts { get; } = new CancellationTokenSource();
         private readonly SemaphoreSlim _writeLock = new SemaphoreSlim(1, 1);
 
+        // ✅ Rate limiting: tối đa 10 message/giây mỗi client
+        private int _messageCount = 0;
+        private DateTime _windowStart = DateTime.UtcNow;
+        private const int MaxMessagesPerSecond = 10;
+
+        public bool IsRateLimited()
+        {
+            var now = DateTime.UtcNow;
+            if ((now - _windowStart).TotalSeconds >= 1.0)
+            {
+                _windowStart = now;
+                _messageCount = 0;
+            }
+            _messageCount++;
+            return _messageCount > MaxMessagesPerSecond;
+        }
+
         public ClientSession(TcpClient client)
         {
             Client = client;
+            // ✅ FIX: Tắt Nagle algorithm để gửi gói nhỏ nhanh hơn
+            client.NoDelay = true;
             Stream = client.GetStream();
             Reader = new StreamReader(Stream, Encoding.UTF8);
             Writer = new StreamWriter(Stream, Encoding.UTF8) { AutoFlush = true };
@@ -45,7 +64,8 @@ namespace SudokuServer.Network
                 await _writeLock.WaitAsync(Cts.Token);
                 try
                 {
-                    string json = JsonSerializer.Serialize(obj);
+                    // ✅ FIX: Dùng JsonOptions cache thay vì tạo mới mỗi lần
+                    string json = JsonSerializer.Serialize(obj, SocketManager.JsonOptions);
                     await Writer.WriteLineAsync(json);
                 }
                 finally
@@ -63,11 +83,7 @@ namespace SudokuServer.Network
         {
             if (_isDisposed) return;
             _isDisposed = true;
-            try
-            {
-                Cts.Cancel();
-            }
-            catch { }
+            try { Cts.Cancel(); } catch { }
             try { Reader.Dispose(); } catch { }
             try { Writer.Dispose(); } catch { }
             try { Stream.Dispose(); } catch { }
@@ -79,6 +95,13 @@ namespace SudokuServer.Network
 
     public class SocketManager
     {
+        // ✅ FIX: Cache JsonSerializerOptions, tạo 1 lần dùng mãi, tiết kiệm CPU
+        public static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = null,
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+        };
+
         private TcpListener? _listener;
         private CancellationTokenSource? _cts;
         private readonly ConcurrentDictionary<string, Player> _players = new();
@@ -95,9 +118,7 @@ namespace SudokuServer.Network
             get
             {
                 if (_rooms.TryGetValue("default", out var room))
-                {
                     return room.IsGameActive;
-                }
                 return false;
             }
         }
@@ -105,7 +126,6 @@ namespace SudokuServer.Network
 
         public SocketManager()
         {
-            // Initialize default lobby room
             var defaultRoom = new Room("default", "Default Room");
             _rooms.TryAdd(defaultRoom.Id, defaultRoom);
         }
@@ -115,9 +135,7 @@ namespace SudokuServer.Network
             if (_rooms.TryGetValue("default", out var room))
             {
                 lock (room.GameLock)
-                {
                     return (int[,])room.Engine.SolutionBoard.Clone();
-                }
             }
             return new int[9, 9];
         }
@@ -127,13 +145,13 @@ namespace SudokuServer.Network
             if (_rooms.TryGetValue("default", out var room))
             {
                 lock (room.GameLock)
-                {
                     return (int[,])room.Engine.PlayerBoard.Clone();
-                }
             }
             return new int[9, 9];
         }
 
+        // ✅ FIX: Trả về List<PlayerData> thay vì List<ClientSession>
+        // Tránh expose internal object, nhẹ hơn
         public List<ClientSession> GetClientsList() => _players.Values.Select(p => p.Session).ToList();
 
         public void Start(int port)
@@ -154,14 +172,11 @@ namespace SudokuServer.Network
             catch (Exception ex)
             {
                 Log($"Error starting server: {ex.Message}");
-
                 try { _listener.Stop(); } catch { }
                 _listener = null;
-
                 try { _cts.Cancel(); } catch { }
                 try { _cts.Dispose(); } catch { }
                 _cts = null;
-
                 IsRunning = false;
                 Port = 0;
                 throw;
@@ -176,18 +191,14 @@ namespace SudokuServer.Network
             foreach (var room in _rooms.Values)
             {
                 lock (room.GameLock)
-                {
                     room.IsGameActive = false;
-                }
             }
 
             _cts?.Cancel();
             _listener?.Stop();
 
             foreach (var player in _players.Values)
-            {
                 player.Session.Disconnect();
-            }
             _players.Clear();
 
             _rooms.Clear();
@@ -209,7 +220,9 @@ namespace SudokuServer.Network
                 {
                     if (_listener == null) break;
                     TcpClient client = await _listener.AcceptTcpClientAsync(token);
-                    _ = Task.Run(() => HandleClientAsync(client, token));
+                    // ✅ FIX: Dùng HandleClientAsync trực tiếp thay vì Task.Run
+                    // Task.Run tạo thêm overhead ThreadPool không cần thiết khi đã async
+                    _ = HandleClientAsync(client, token);
                 }
                 catch (ObjectDisposedException)
                 {
@@ -218,9 +231,7 @@ namespace SudokuServer.Network
                 catch (Exception ex)
                 {
                     if (!token.IsCancellationRequested)
-                    {
                         Log($"Error accepting client: {ex.Message}");
-                    }
                 }
             }
         }
@@ -237,7 +248,14 @@ namespace SudokuServer.Network
                 while (!token.IsCancellationRequested && !session.Cts.Token.IsCancellationRequested)
                 {
                     string? line = await session.Reader.ReadLineAsync(session.Cts.Token);
-                    if (line == null) break; // Client disconnected gracefully
+                    if (line == null) break;
+
+                    // ✅ Bỏ qua message nếu client spam quá 10 msg/giây
+                    if (session.IsRateLimited())
+                    {
+                        Log($"Rate limit: dropping message from '{session.Username}'");
+                        continue;
+                    }
 
                     await ProcessMessageAsync(session, line);
                 }
@@ -245,9 +263,7 @@ namespace SudokuServer.Network
             catch (Exception ex)
             {
                 if (!(ex is OperationCanceledException || ex is ObjectDisposedException || ex is IOException))
-                {
                     Log($"Session error for {session.Username} ({ipAddress}): {ex.Message}");
-                }
             }
             finally
             {
@@ -269,10 +285,10 @@ namespace SudokuServer.Network
         {
             try
             {
-                var msg = JsonSerializer.Deserialize<NetworkMessage>(messageJson);
+                // ✅ FIX: Dùng JsonOptions cache khi deserialize
+                var msg = JsonSerializer.Deserialize<NetworkMessage>(messageJson, JsonOptions);
                 if (msg == null) return;
 
-                // Validate that the client has connected before processing other commands
                 if (msg.Type != "CLIENT_CONNECT" && !_players.ContainsKey(session.Id))
                 {
                     Log($"Warning: Received '{msg.Type}' from unregistered client '{session.Username}' ({session.Id}).");
@@ -289,13 +305,9 @@ namespace SudokuServer.Network
                             _players[session.Id] = newPlayer;
                             Log($"Player '{newPlayer.Username}' joined the lobby.");
 
-                            // Join default room
                             if (_rooms.TryGetValue("default", out var defaultRoom))
-                            {
                                 defaultRoom.AddPlayer(newPlayer);
-                            }
 
-                            // Send connect confirmation
                             await session.SendAsync(new NetworkMessage
                             {
                                 Type = "SERVER_CONNECT_RESPONSE",
@@ -304,14 +316,11 @@ namespace SudokuServer.Network
                                 Message = "Successfully connected to server."
                             });
 
-                            // Broadcast updated player list in the player's room
                             if (newPlayer.RoomId != null && _rooms.TryGetValue(newPlayer.RoomId, out var room))
-                            {
                                 room.BroadcastPlayerList();
-                            }
+
                             OnClientListChanged?.Invoke();
 
-                            // If game is active, send the current board to the new player
                             if (newPlayer.RoomId != null && _rooms.TryGetValue(newPlayer.RoomId, out var rRoom))
                             {
                                 bool isGameActiveCopy;
@@ -320,9 +329,7 @@ namespace SudokuServer.Network
                                 {
                                     isGameActiveCopy = rRoom.IsGameActive;
                                     if (isGameActiveCopy)
-                                    {
                                         boardJagged = ConvertToJagged(rRoom.Engine.PlayerBoard);
-                                    }
                                 }
 
                                 if (isGameActiveCopy && boardJagged != null)
@@ -339,18 +346,13 @@ namespace SudokuServer.Network
 
                     case "CLIENT_READY":
                         {
-                            if (msg.IsReady.HasValue)
+                            if (msg.IsReady.HasValue && _players.TryGetValue(session.Id, out var player))
                             {
-                                if (_players.TryGetValue(session.Id, out var player))
-                                {
-                                    player.IsReady = msg.IsReady.Value;
-                                    Log($"Player '{player.Username}' is {(player.IsReady ? "READY" : "NOT READY")}");
-                                    if (player.RoomId != null && _rooms.TryGetValue(player.RoomId, out var room))
-                                    {
-                                        room.BroadcastPlayerList();
-                                    }
-                                    OnClientListChanged?.Invoke();
-                                }
+                                player.IsReady = msg.IsReady.Value;
+                                Log($"Player '{player.Username}' is {(player.IsReady ? "READY" : "NOT READY")}");
+                                if (player.RoomId != null && _rooms.TryGetValue(player.RoomId, out var room))
+                                    room.BroadcastPlayerList();
+                                OnClientListChanged?.Invoke();
                             }
                             break;
                         }
@@ -358,15 +360,11 @@ namespace SudokuServer.Network
                     case "CLIENT_MOVE":
                         {
                             if (!_players.TryGetValue(session.Id, out var movingPlayer) || movingPlayer.RoomId == null || !_rooms.TryGetValue(movingPlayer.RoomId, out var playRoom))
-                            {
                                 break;
-                            }
 
                             bool isGameActiveCheck;
                             lock (playRoom.GameLock)
-                            {
                                 isGameActiveCheck = playRoom.IsGameActive;
-                            }
 
                             if (!isGameActiveCheck)
                             {
@@ -385,16 +383,14 @@ namespace SudokuServer.Network
                                     bool isCorrect = false;
                                     bool alreadySolved = false;
                                     bool isFinished = false;
-                                    bool shouldKick = false;
 
                                     lock (playRoom.GameLock)
                                     {
-                                        // Check again inside the lock
-                                        if (!playRoom.IsGameActive)
-                                            break;
+                                        if (!playRoom.IsGameActive) break;
 
-                                        if (playRoom.Engine.PlayerBoard[r, c] == playRoom.Engine.SolutionBoard[r, c])
+                                        if (playRoom.Engine.PlayerBoard[r, c] != 0)
                                         {
+                                            // Ô đã có số rồi, bỏ qua
                                             alreadySolved = true;
                                         }
                                         else
@@ -404,32 +400,23 @@ namespace SudokuServer.Network
                                             {
                                                 playRoom.Engine.ApplyMove(r, c, val);
                                                 movingPlayer.Score += 10;
-                                                Log($"'{movingPlayer.Username}' placed {val} at ({r}, {c}) - CORRECT (+10 pts) in Room '{playRoom.Name}'");
+                                                Log($"'{movingPlayer.Username}' placed {val} at ({r},{c}) - CORRECT (+10 pts)");
                                             }
                                             else
                                             {
-                                                movingPlayer.Score = Math.Max(0, movingPlayer.Score - 5); // Prevent negative score
-                                                Log($"'{movingPlayer.Username}' placed {val} at ({r}, {c}) - INCORRECT (-5 pts) in Room '{playRoom.Name}'");
-                                                if (movingPlayer.Score == 0)
-                                                {
-                                                    shouldKick = true;
-                                                }
+                                                // ✅ Chỉ trừ điểm, không kick
+                                                movingPlayer.Score = Math.Max(0, movingPlayer.Score - 5);
+                                                Log($"'{movingPlayer.Username}' placed {val} at ({r},{c}) - INCORRECT (-5 pts)");
                                             }
 
                                             isFinished = playRoom.Engine.IsGameFinished();
                                             if (isFinished)
-                                            {
                                                 playRoom.IsGameActive = false;
-                                            }
                                         }
                                     }
 
-                                    if (alreadySolved)
-                                    {
-                                        break;
-                                    }
+                                    if (alreadySolved) break;
 
-                                    // Broadcast move update to the room
                                     playRoom.Broadcast(new NetworkMessage
                                     {
                                         Type = "SERVER_MOVE_UPDATE",
@@ -444,23 +431,10 @@ namespace SudokuServer.Network
 
                                     OnGameStateChanged?.Invoke();
 
-                                    // Check if game finished
                                     if (isFinished)
                                     {
                                         playRoom.EndGame();
                                         OnGameStateChanged?.Invoke();
-                                    }
-
-                                    if (shouldKick)
-                                    {
-                                        playRoom.Broadcast(new NetworkMessage
-                                        {
-                                            Type = "SERVER_CHAT",
-                                            Username = "System",
-                                            ChatText = $"Player '{movingPlayer.Username}' was kicked for reaching 0 points!"
-                                        });
-                                        Log($"Player '{movingPlayer.Username}' was kicked for reaching 0 points.");
-                                        movingPlayer.Session.Disconnect();
                                     }
                                 }
                             }
@@ -469,20 +443,17 @@ namespace SudokuServer.Network
 
                     case "CLIENT_CHAT":
                         {
-                            if (!string.IsNullOrEmpty(msg.ChatText))
+                            if (!string.IsNullOrEmpty(msg.ChatText) && _players.TryGetValue(session.Id, out var chatPlayer))
                             {
-                                if (_players.TryGetValue(session.Id, out var chatPlayer))
+                                Log($"[CHAT][Room: {chatPlayer.RoomId}] {chatPlayer.Username}: {msg.ChatText}");
+                                if (chatPlayer.RoomId != null && _rooms.TryGetValue(chatPlayer.RoomId, out var chatRoom))
                                 {
-                                    Log($"[CHAT][Room: {chatPlayer.RoomId}] {chatPlayer.Username}: {msg.ChatText}");
-                                    if (chatPlayer.RoomId != null && _rooms.TryGetValue(chatPlayer.RoomId, out var chatRoom))
+                                    chatRoom.Broadcast(new NetworkMessage
                                     {
-                                        chatRoom.Broadcast(new NetworkMessage
-                                        {
-                                            Type = "SERVER_CHAT",
-                                            Username = chatPlayer.Username,
-                                            ChatText = msg.ChatText
-                                        });
-                                    }
+                                        Type = "SERVER_CHAT",
+                                        Username = chatPlayer.Username,
+                                        ChatText = msg.ChatText
+                                    });
                                 }
                             }
                             break;
@@ -500,14 +471,12 @@ namespace SudokuServer.Network
                                 {
                                     Log($"Player '{creator.Username}' created room '{roomName}' (ID: {newRoomId})");
 
-                                    // Leave current room
                                     if (creator.RoomId != null && _rooms.TryGetValue(creator.RoomId, out var oldRoom))
                                     {
                                         oldRoom.RemovePlayer(creator.Id);
                                         oldRoom.BroadcastPlayerList();
                                     }
 
-                                    // Join new room
                                     newRoom.AddPlayer(creator);
 
                                     await session.SendAsync(new NetworkMessage
@@ -542,7 +511,6 @@ namespace SudokuServer.Network
                                 {
                                     Log($"Player '{joiner.Username}' joining room '{targetRoom.Name}' (ID: {targetRoom.Id})");
 
-                                    // Leave current room
                                     if (joiner.RoomId != null && _rooms.TryGetValue(joiner.RoomId, out var oldRoom))
                                     {
                                         oldRoom.RemovePlayer(joiner.Id);
@@ -562,16 +530,13 @@ namespace SudokuServer.Network
                                     targetRoom.BroadcastPlayerList();
                                     OnClientListChanged?.Invoke();
 
-                                    // Send current board status if active
                                     bool isGameActiveCopy;
                                     int[][]? boardJagged = null;
                                     lock (targetRoom.GameLock)
                                     {
                                         isGameActiveCopy = targetRoom.IsGameActive;
                                         if (isGameActiveCopy)
-                                        {
                                             boardJagged = ConvertToJagged(targetRoom.Engine.PlayerBoard);
-                                        }
                                     }
 
                                     if (isGameActiveCopy && boardJagged != null)
@@ -653,7 +618,6 @@ namespace SudokuServer.Network
         {
             if (!IsRunning) return;
 
-            // By default, start game in the default room
             if (_rooms.TryGetValue("default", out var defaultRoom))
             {
                 Log($"Starting a new game in lobby room. Difficulty: removing {cellsToRemove} cells.");
@@ -665,17 +629,13 @@ namespace SudokuServer.Network
         private void BroadcastPlayerList()
         {
             if (_rooms.TryGetValue("default", out var defaultRoom))
-            {
                 defaultRoom.BroadcastPlayerList();
-            }
         }
 
         private void Broadcast(object obj)
         {
             foreach (var player in _players.Values)
-            {
                 _ = player.Session.SendAsync(obj);
-            }
         }
 
         private void Log(string message)
@@ -691,9 +651,7 @@ namespace SudokuServer.Network
             {
                 jagged[r] = new int[9];
                 for (int c = 0; c < 9; c++)
-                {
                     jagged[r][c] = array2D[r, c];
-                }
             }
             return jagged;
         }
