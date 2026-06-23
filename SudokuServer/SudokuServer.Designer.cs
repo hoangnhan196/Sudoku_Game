@@ -96,7 +96,8 @@ namespace SudokuServer
             "Medium (42 blank cells)",
             "Hard (52 blank cells)",
             "Expert (62 blank cells)",
-            "Evil (72 blank cells)"});
+            "Evil (72 blank cells)",
+            "Master (78 blank cells)"});
             this.cmbDifficulty.Location = new System.Drawing.Point(557, 22);
             this.cmbDifficulty.Name = "cmbDifficulty";
             this.cmbDifficulty.Size = new System.Drawing.Size(160, 25);

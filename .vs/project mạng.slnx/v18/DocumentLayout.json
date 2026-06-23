@@ -1,7 +1,52 @@
 {
   "Version": 1,
   "WorkspaceRootPath": "C:\\Users\\PC\\Documents\\project m\u1EA1ng\\",
-  "Documents": [],
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\PC\\Documents\\project m\u1EA1ng\\SudokuServer\\Models\\Room.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:SudokuServer\\Models\\Room.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\PC\\Documents\\project m\u1EA1ng\\SudokuServer\\Models\\Player.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:SudokuServer\\Models\\Player.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\PC\\Documents\\project m\u1EA1ng\\SudokuClient\\GameLogic\\SudokuEngine.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:SudokuClient\\GameLogic\\SudokuEngine.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\PC\\Documents\\project m\u1EA1ng\\SudokuClient\\GameLogic\\BoardController.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:SudokuClient\\GameLogic\\BoardController.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\PC\\Documents\\project m\u1EA1ng\\SudokuClient\\Models\\NetworkMessage.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:SudokuClient\\Models\\NetworkMessage.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\PC\\Documents\\project m\u1EA1ng\\SudokuClient\\Network\\NetworkClient.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:SudokuClient\\Network\\NetworkClient.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\PC\\Documents\\project m\u1EA1ng\\SudokuClient\\ClientForm.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:SudokuClient\\ClientForm.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\PC\\Documents\\project m\u1EA1ng\\SudokuClient\\ClientForm.Designer.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:SudokuClient\\ClientForm.Designer.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\PC\\Documents\\project m\u1EA1ng\\SudokuClient\\Program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:SudokuClient\\Program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\PC\\Documents\\project m\u1EA1ng\\SudokuClient\\SudokuClient.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:SudokuClient\\SudokuClient.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\PC\\Documents\\project m\u1EA1ng\\SudokuServer\\Network\\SocketManager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:SudokuServer\\Network\\SocketManager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    }
+  ],
   "DocumentGroupContainers": [
     {
       "Orientation": 0,
@@ -9,11 +54,154 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": -1,
+          "SelectedChildIndex": 1,
           "Children": [
             {
               "$type": "Bookmark",
               "Name": "ST:0:0:{34e76e81-ee4a-11d0-ae2e-00a0c90fffc3}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "Room.cs",
+              "DocumentMoniker": "C:\\Users\\PC\\Documents\\project m\u1EA1ng\\SudokuServer\\Models\\Room.cs",
+              "RelativeDocumentMoniker": "SudokuServer\\Models\\Room.cs",
+              "ToolTip": "C:\\Users\\PC\\Documents\\project m\u1EA1ng\\SudokuServer\\Models\\Room.cs",
+              "RelativeToolTip": "SudokuServer\\Models\\Room.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-06-23T08:20:39.42Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "Player.cs",
+              "DocumentMoniker": "C:\\Users\\PC\\Documents\\project m\u1EA1ng\\SudokuServer\\Models\\Player.cs",
+              "RelativeDocumentMoniker": "SudokuServer\\Models\\Player.cs",
+              "ToolTip": "C:\\Users\\PC\\Documents\\project m\u1EA1ng\\SudokuServer\\Models\\Player.cs",
+              "RelativeToolTip": "SudokuServer\\Models\\Player.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-06-23T08:20:34.752Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "SudokuEngine.cs",
+              "DocumentMoniker": "C:\\Users\\PC\\Documents\\project m\u1EA1ng\\SudokuClient\\GameLogic\\SudokuEngine.cs",
+              "RelativeDocumentMoniker": "SudokuClient\\GameLogic\\SudokuEngine.cs",
+              "ToolTip": "C:\\Users\\PC\\Documents\\project m\u1EA1ng\\SudokuClient\\GameLogic\\SudokuEngine.cs",
+              "RelativeToolTip": "SudokuClient\\GameLogic\\SudokuEngine.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-06-23T08:20:21.77Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "BoardController.cs",
+              "DocumentMoniker": "C:\\Users\\PC\\Documents\\project m\u1EA1ng\\SudokuClient\\GameLogic\\BoardController.cs",
+              "RelativeDocumentMoniker": "SudokuClient\\GameLogic\\BoardController.cs",
+              "ToolTip": "C:\\Users\\PC\\Documents\\project m\u1EA1ng\\SudokuClient\\GameLogic\\BoardController.cs",
+              "RelativeToolTip": "SudokuClient\\GameLogic\\BoardController.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-06-23T08:20:19.352Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "NetworkMessage.cs",
+              "DocumentMoniker": "C:\\Users\\PC\\Documents\\project m\u1EA1ng\\SudokuClient\\Models\\NetworkMessage.cs",
+              "RelativeDocumentMoniker": "SudokuClient\\Models\\NetworkMessage.cs",
+              "ToolTip": "C:\\Users\\PC\\Documents\\project m\u1EA1ng\\SudokuClient\\Models\\NetworkMessage.cs",
+              "RelativeToolTip": "SudokuClient\\Models\\NetworkMessage.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-06-23T08:20:14.681Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 6,
+              "Title": "ClientForm.cs",
+              "DocumentMoniker": "C:\\Users\\PC\\Documents\\project m\u1EA1ng\\SudokuClient\\ClientForm.cs",
+              "RelativeDocumentMoniker": "SudokuClient\\ClientForm.cs",
+              "ToolTip": "C:\\Users\\PC\\Documents\\project m\u1EA1ng\\SudokuClient\\ClientForm.cs",
+              "RelativeToolTip": "SudokuClient\\ClientForm.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-06-23T08:19:54.248Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
+              "Title": "NetworkClient.cs",
+              "DocumentMoniker": "C:\\Users\\PC\\Documents\\project m\u1EA1ng\\SudokuClient\\Network\\NetworkClient.cs",
+              "RelativeDocumentMoniker": "SudokuClient\\Network\\NetworkClient.cs",
+              "ToolTip": "C:\\Users\\PC\\Documents\\project m\u1EA1ng\\SudokuClient\\Network\\NetworkClient.cs",
+              "RelativeToolTip": "SudokuClient\\Network\\NetworkClient.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-06-23T08:19:52.18Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 7,
+              "Title": "ClientForm.Designer.cs",
+              "DocumentMoniker": "C:\\Users\\PC\\Documents\\project m\u1EA1ng\\SudokuClient\\ClientForm.Designer.cs",
+              "RelativeDocumentMoniker": "SudokuClient\\ClientForm.Designer.cs",
+              "ToolTip": "C:\\Users\\PC\\Documents\\project m\u1EA1ng\\SudokuClient\\ClientForm.Designer.cs",
+              "RelativeToolTip": "SudokuClient\\ClientForm.Designer.cs",
+              "ViewState": "AgIAAIUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-06-23T08:19:42.544Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 8,
+              "Title": "Program.cs",
+              "DocumentMoniker": "C:\\Users\\PC\\Documents\\project m\u1EA1ng\\SudokuClient\\Program.cs",
+              "RelativeDocumentMoniker": "SudokuClient\\Program.cs",
+              "ToolTip": "C:\\Users\\PC\\Documents\\project m\u1EA1ng\\SudokuClient\\Program.cs",
+              "RelativeToolTip": "SudokuClient\\Program.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-06-23T08:19:38.009Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 9,
+              "Title": "SudokuClient.csproj",
+              "DocumentMoniker": "C:\\Users\\PC\\Documents\\project m\u1EA1ng\\SudokuClient\\SudokuClient.csproj",
+              "RelativeDocumentMoniker": "SudokuClient\\SudokuClient.csproj",
+              "ToolTip": "C:\\Users\\PC\\Documents\\project m\u1EA1ng\\SudokuClient\\SudokuClient.csproj",
+              "RelativeToolTip": "SudokuClient\\SudokuClient.csproj",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
+              "WhenOpened": "2026-06-23T08:19:35.638Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 10,
+              "Title": "SocketManager.cs",
+              "DocumentMoniker": "C:\\Users\\PC\\Documents\\project m\u1EA1ng\\SudokuServer\\Network\\SocketManager.cs",
+              "RelativeDocumentMoniker": "SudokuServer\\Network\\SocketManager.cs",
+              "ToolTip": "C:\\Users\\PC\\Documents\\project m\u1EA1ng\\SudokuServer\\Network\\SocketManager.cs",
+              "RelativeToolTip": "SudokuServer\\Network\\SocketManager.cs",
+              "ViewState": "AgIAAIkAAAAAAAAAAAAAAAYAAAASAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-06-16T09:49:50.942Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Bookmark",

@@ -71,30 +71,45 @@ namespace SudokuServer.Models
 
         public void StartGame(int cellsToRemove)
         {
-            int[][] boardJagged;
-            lock (GameLock)
+            // Run countdown + game start on background thread to not block
+            Task.Run(async () =>
             {
-                Engine.GenerateNewGame(cellsToRemove);
-                IsGameActive = true;
-                GameStartTime = DateTime.UtcNow;
-
-                // Reset player penalties
-                foreach (var player in Players.Values)
+                // Countdown 3-2-1
+                for (int i = 3; i >= 1; i--)
                 {
-                    player.Score = 0;
-                    player.PenaltySeconds = 0;
+                    Broadcast(new NetworkMessage
+                    {
+                        Type = "SERVER_COUNTDOWN",
+                        Message = $"⏳ Game bắt đầu sau {i} giây..."
+                    });
+                    await Task.Delay(1000);
                 }
 
-                boardJagged = ConvertToJagged(Engine.PlayerBoard);
-            }
+                int[][] boardJagged;
+                lock (GameLock)
+                {
+                    Engine.GenerateNewGame(cellsToRemove);
+                    IsGameActive = true;
+                    GameStartTime = DateTime.UtcNow;
 
-            Broadcast(new NetworkMessage
-            {
-                Type = "SERVER_START_GAME",
-                Board = boardJagged
+                    // Reset player penalties
+                    foreach (var player in Players.Values)
+                    {
+                        player.Score = 0;
+                        player.PenaltySeconds = 0;
+                    }
+
+                    boardJagged = ConvertToJagged(Engine.PlayerBoard);
+                }
+
+                Broadcast(new NetworkMessage
+                {
+                    Type = "SERVER_START_GAME",
+                    Board = boardJagged
+                });
+
+                BroadcastPlayerList();
             });
-
-            BroadcastPlayerList();
         }
 
         public void EndGame()

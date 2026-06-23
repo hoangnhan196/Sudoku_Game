@@ -17,6 +17,7 @@ namespace SudokuClient
         private System.Windows.Forms.Label lblTitle;
         private System.Windows.Forms.Button btnDiscover;
 
+
         // Lobby Controls
         private System.Windows.Forms.Panel panelLobby;
         private System.Windows.Forms.ListBox lstLobbyPlayers;
@@ -39,6 +40,7 @@ namespace SudokuClient
         private System.Windows.Forms.TextBox txtChatInput;
         private System.Windows.Forms.Button btnSendChat;
         private System.Windows.Forms.Label lblGameStatus;
+        private System.Windows.Forms.Button btnExitGame;
 
         protected override void Dispose(bool disposing)
         {
@@ -78,12 +80,14 @@ namespace SudokuClient
             this.btnOffline = new System.Windows.Forms.Button();
             this.btnDiscover = new System.Windows.Forms.Button();
 
+
             // Instantiate Game
             this.lstGamePlayers = new System.Windows.Forms.ListBox();
             this.txtChatLog = new System.Windows.Forms.TextBox();
             this.txtChatInput = new System.Windows.Forms.TextBox();
             this.btnSendChat = new System.Windows.Forms.Button();
             this.lblGameStatus = new System.Windows.Forms.Label();
+            this.btnExitGame = new System.Windows.Forms.Button();
 
             this.SuspendLayout();
 
@@ -225,7 +229,8 @@ namespace SudokuClient
             "Vừa (Medium)",
             "Khó (Hard)",
             "Siêu khó (Expert)",
-            "Ác mộng (Evil)"});
+            "Ác mộng (Evil)",
+            "Đỉnh cao (Master)"});
             this.cmbDifficulty.Location = new System.Drawing.Point(400, 520);
             this.cmbDifficulty.Size = new System.Drawing.Size(150, 30);
             this.cmbDifficulty.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
@@ -282,12 +287,22 @@ namespace SudokuClient
             this.btnSendChat.Size = new System.Drawing.Size(50, 30);
             this.btnSendChat.Click += new System.EventHandler(this.btnSendChat_Click);
 
+            this.btnExitGame.Text = "⬅ Thoát";
+            this.btnExitGame.Location = new System.Drawing.Point(480, 470);
+            this.btnExitGame.Size = new System.Drawing.Size(120, 35);
+            this.btnExitGame.BackColor = System.Drawing.Color.FromArgb(220, 53, 69);
+            this.btnExitGame.ForeColor = System.Drawing.Color.White;
+            this.btnExitGame.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnExitGame.Font = new System.Drawing.Font("Segoe UI", 10, System.Drawing.FontStyle.Bold);
+            this.btnExitGame.Click += new System.EventHandler(this.btnExitGame_Click);
+
             this.panelGame.Controls.Add(this.pnlBoard);
             this.panelGame.Controls.Add(this.lblGameStatus);
             this.panelGame.Controls.Add(this.lstGamePlayers);
             this.panelGame.Controls.Add(this.txtChatLog);
             this.panelGame.Controls.Add(this.txtChatInput);
             this.panelGame.Controls.Add(this.btnSendChat);
+            this.panelGame.Controls.Add(this.btnExitGame);
 
             this.Controls.Add(this.panelLogin);
             this.Controls.Add(this.panelLobby);

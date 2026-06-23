@@ -82,6 +82,7 @@ namespace SudokuServer
             else if (index == 2) cellsToRemove = 52; // Hard
             else if (index == 3) cellsToRemove = 62; // Expert
             else if (index == 4) cellsToRemove = 72; // Evil
+            else if (index == 5) cellsToRemove = 80; // Master
 
             _server.StartGame(cellsToRemove);
         }

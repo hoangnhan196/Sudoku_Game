@@ -19,6 +19,8 @@ namespace SudokuClient
         private System.Windows.Forms.Timer _gameTimer = new System.Windows.Forms.Timer { Interval = 1000 };
         private DateTime _gameStartTime;
         private int _penaltySeconds = 0;
+        private bool _moveCooldown = false;
+        private System.Windows.Forms.Timer _cooldownTimer = new System.Windows.Forms.Timer { Interval = 500 };
 
         public ClientForm()
         {
@@ -29,13 +31,14 @@ namespace SudokuClient
             _network.OnMessageReceived += Network_OnMessageReceived;
             _network.OnDisconnected += Network_OnDisconnected;
             _gameTimer.Tick += GameTimer_Tick;
+            _cooldownTimer.Tick += (s, ev) => { _moveCooldown = false; _cooldownTimer.Stop(); };
         }
 
         private void InitializeBoard()
         {
             int cellSize = 50;
             pnlBoard.Size = new Size(9 * cellSize + 2, 9 * cellSize + 2); // Adjust for borders
-            
+
             for (int r = 0; r < 9; r++)
             {
                 for (int c = 0; c < 9; c++)
@@ -49,7 +52,7 @@ namespace SudokuClient
                         FlatStyle = FlatStyle.Flat,
                         Tag = new Point(r, c)
                     };
-                    
+
                     // Thicker borders for 3x3 grids (simulated via margin or just flatstyle)
                     btn.FlatAppearance.BorderColor = Color.Gray;
                     if (c % 3 == 0) btn.Location = new Point(btn.Location.X + 2, btn.Location.Y);
@@ -57,7 +60,7 @@ namespace SudokuClient
 
                     btn.Click += Cell_Click;
                     btn.KeyPress += Cell_KeyPress;
-                    
+
                     _cells[r, c] = btn;
                     pnlBoard.Controls.Add(btn);
                 }
@@ -73,7 +76,7 @@ namespace SudokuClient
                 {
                     _cells[_selectedRow, _selectedCol].BackColor = _cells[_selectedRow, _selectedCol].ForeColor == Color.Black ? Color.White : Color.LightYellow;
                 }
-                
+
                 _selectedRow = pt.X;
                 _selectedCol = pt.Y;
                 btn.BackColor = Color.LightBlue;
@@ -84,9 +87,15 @@ namespace SudokuClient
         private async void Cell_KeyPress(object? sender, KeyPressEventArgs e)
         {
             if (_selectedRow == -1 || _selectedCol == -1) return;
+            if (_moveCooldown) return; // Cooldown 0.5s chưa hết
             if (char.IsDigit(e.KeyChar) && e.KeyChar != '0')
             {
                 int val = int.Parse(e.KeyChar.ToString());
+
+                // Bắt đầu cooldown 0.5s
+                _moveCooldown = true;
+                _cooldownTimer.Start();
+
                 if (_isOffline && _offlineEngine != null)
                 {
                     HandleOfflineMove(_selectedRow, _selectedCol, val);
@@ -194,7 +203,7 @@ namespace SudokuClient
                             panelLogin.Visible = false;
                             panelLobby.Visible = true;
                             panelGame.Visible = false;
-                            
+
                             // Ask for room list
                             _network.SendAsync(new NetworkMessage { Type = "CLIENT_GET_ROOMS" });
                         }
@@ -238,6 +247,8 @@ namespace SudokuClient
                         if (msg.Success == true)
                         {
                             MessageBox.Show(msg.Message, "Thông báo");
+                            // Cập nhật lại danh sách phòng
+                            _network.SendAsync(new NetworkMessage { Type = "CLIENT_GET_ROOMS" });
                         }
                         else
                         {
@@ -258,7 +269,8 @@ namespace SudokuClient
                         _gameStartTime = DateTime.Now;
                         _gameTimer.Start();
                         lblGameStatus.Text = "⏱ 00:00 — Điền số bằng phím 1-9";
-                        
+                        txtChatLog.Clear();
+
                         if (msg.Board != null)
                         {
                             for (int r = 0; r < 9; r++)
@@ -312,10 +324,19 @@ namespace SudokuClient
                     case "SERVER_CHAT":
                         txtChatLog.AppendText($"{msg.Username}: {msg.ChatText}\n");
                         break;
+
+                    case "SERVER_COUNTDOWN":
+                        panelLobby.Visible = false;
+                        panelGame.Visible = true;
+                        lblGameStatus.Text = msg.Message ?? "Chuẩn bị...";
+                        // Disable board during countdown
+                        for (int r = 0; r < 9; r++)
+                            for (int c = 0; c < 9; c++)
+                                _cells[r, c].Enabled = false;
+                        break;
                 }
             }));
         }
-
         private async void btnDiscover_Click(object sender, EventArgs e)
         {
             btnDiscover.Enabled = false;
@@ -350,6 +371,7 @@ namespace SudokuClient
                 btnDiscover.Text = "🔍 Tìm Server LAN";
             }
         }
+
 
         private void btnConnect_Click(object sender, EventArgs e)
         {
@@ -407,6 +429,7 @@ namespace SudokuClient
             else if (index == 2) cellsToRemove = 52; // Hard
             else if (index == 3) cellsToRemove = 62; // Expert
             else if (index == 4) cellsToRemove = 72; // Evil
+            else if (index == 5) cellsToRemove = 80; // Master
 
             await _network.SendAsync(new NetworkMessage { Type = "CLIENT_START_GAME", Value = cellsToRemove });
         }
@@ -454,6 +477,25 @@ namespace SudokuClient
         {
             _network.Disconnect();
             base.OnFormClosing(e);
+        }
+
+        private async void btnExitGame_Click(object sender, EventArgs e)
+        {
+            _gameTimer.Stop();
+            txtChatLog.Clear();
+            if (_isOffline)
+            {
+                _isOffline = false;
+                panelGame.Visible = false;
+                panelLogin.Visible = true;
+            }
+            else
+            {
+                await _network.SendAsync(new NetworkMessage { Type = "CLIENT_LEAVE_ROOM" });
+                panelGame.Visible = false;
+                panelLobby.Visible = true;
+                await _network.SendAsync(new NetworkMessage { Type = "CLIENT_GET_ROOMS" });
+            }
         }
     }
 }

@@ -82,6 +82,7 @@ namespace SudokuServer.Network
         private TcpListener? _listener;
         private CancellationTokenSource? _cts;
         private UdpClient? _udpDiscovery;
+
         private readonly ConcurrentDictionary<string, Player> _players = new();
         private readonly ConcurrentDictionary<string, Room> _rooms = new();
 
@@ -199,6 +200,7 @@ namespace SudokuServer.Network
             _listener?.Stop();
             try { _udpDiscovery?.Close(); } catch { }
             try { _udpDiscovery?.Dispose(); } catch { }
+
 
             foreach (var player in _players.Values)
             {
