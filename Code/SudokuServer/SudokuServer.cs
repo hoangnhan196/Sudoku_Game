@@ -1,5 +1,8 @@
 using System;
 using System.Drawing;
+using System.Linq;
+using System.Net;
+using System.Net.Sockets;
 using System.Windows.Forms;
 using SudokuServer.Network;
 
@@ -32,22 +35,31 @@ namespace SudokuServer
             int port = 0;
             if (!string.IsNullOrWhiteSpace(txtPort.Text))
             {
-                if (!int.TryParse(txtPort.Text, out port) || port < 0 || port > 999999)
+                if (!int.TryParse(txtPort.Text, out port) || port < 0 || port > 99999)
                 {
-                    MessageBox.Show("Please enter a valid port number (0-999999) or leave it empty for automatic assignment.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show("Please enter a valid port number (0-99999) or leave it empty for automatic assignment.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
             }
 
+            string ip = txtIP.Text.Trim();
+
             try
             {
-                _server.Start(port);
+                _server.Start(ip, port);
                 txtPort.Text = _server.Port.ToString();
+
+                // Auto-detect and display LAN IP for clients to use
+                string lanIp = GetLocalLanIP();
+                txtIP.Text = lanIp;
+                LogToConsole($"[INFO] Địa chỉ IP LAN của server: {lanIp}:{_server.Port}");
+                LogToConsole($"[INFO] Client hãy nhập IP: {lanIp} và Port: {_server.Port} để kết nối.");
+
                 UpdateUIState(true);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to start server: {ex.Message}", "lỗi!! vui lòng thử lại", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"Khởi động máy chủ thất bại: {ex.Message}", "Lỗi! vui lòng thử lại", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -70,6 +82,7 @@ namespace SudokuServer
             else if (index == 2) cellsToRemove = 52; // Hard
             else if (index == 3) cellsToRemove = 62; // Expert
             else if (index == 4) cellsToRemove = 72; // Evil
+            else if (index == 5) cellsToRemove = 80; // Master
 
             _server.StartGame(cellsToRemove);
         }
@@ -133,6 +146,7 @@ namespace SudokuServer
             btnStop.Enabled = isRunning;
             btnStartGame.Enabled = isRunning;
             txtPort.Enabled = !isRunning;
+            txtIP.Enabled = !isRunning;
             cmbDifficulty.Enabled = !isRunning;
 
             if (isRunning)
@@ -223,9 +237,36 @@ namespace SudokuServer
             }
         }
 
-        private void tableLayoutPanel1_Paint(object sender, PaintEventArgs e)
+        /// <summary>
+        /// Gets the local LAN IP address (IPv4, non-loopback).
+        /// </summary>
+        private string GetLocalLanIP()
         {
+            try
+            {
+                // Preferred method: open a UDP socket to detect the actual outgoing interface
+                using (var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp))
+                {
+                    socket.Connect("8.8.8.8", 80);
+                    if (socket.LocalEndPoint is IPEndPoint endPoint)
+                    {
+                        return endPoint.Address.ToString();
+                    }
+                }
+            }
+            catch { }
 
+            // Fallback: enumerate network interfaces
+            try
+            {
+                var host = Dns.GetHostEntry(Dns.GetHostName());
+                var lanIp = host.AddressList
+                    .FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork && !IPAddress.IsLoopback(a));
+                if (lanIp != null) return lanIp.ToString();
+            }
+            catch { }
+
+            return "127.0.0.1";
         }
     }
 }
