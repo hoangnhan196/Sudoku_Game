@@ -92,16 +92,19 @@ namespace SudokuServer.Network
 
         public bool IsRunning { get; private set; } = false;
         public int Port { get; private set; } = 0;
-        public bool IsGameActive
+     public bool IsGameActive => _rooms.Values.Any(r => r.IsGameActive);
+
+        public int[,] GetSolutionBoard()
         {
-            get
+            var activeRoom = _rooms.Values.FirstOrDefault(r => r.IsGameActive) ?? _rooms.GetValueOrDefault("default");
+            if (activeRoom != null)
             {
-                if (_rooms.TryGetValue("default", out var room))
+                lock (activeRoom.GameLock)
                 {
-                    return room.IsGameActive;
+                    return (int[,])activeRoom.Engine.SolutionBoard.Clone();
                 }
-                return false;
             }
+            return new int[9, 9];
         }
         public int ConnectedClientsCount => _players.Count;
 
@@ -112,25 +115,14 @@ namespace SudokuServer.Network
             _rooms.TryAdd(defaultRoom.Id, defaultRoom);
         }
 
-        public int[,] GetSolutionBoard()
+       public int[,] GetPlayerBoard()
         {
-            if (_rooms.TryGetValue("default", out var room))
+            var activeRoom = _rooms.Values.FirstOrDefault(r => r.IsGameActive) ?? _rooms.GetValueOrDefault("default");
+            if (activeRoom != null)
             {
-                lock (room.GameLock)
+                lock (activeRoom.GameLock)
                 {
-                    return (int[,])room.Engine.SolutionBoard.Clone();
-                }
-            }
-            return new int[9, 9];
-        }
-
-        public int[,] GetPlayerBoard()
-        {
-            if (_rooms.TryGetValue("default", out var room))
-            {
-                lock (room.GameLock)
-                {
-                    return (int[,])room.Engine.PlayerBoard.Clone();
+                    return (int[,])activeRoom.Engine.PlayerBoard.Clone();
                 }
             }
             return new int[9, 9];

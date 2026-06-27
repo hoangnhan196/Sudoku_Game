@@ -71,10 +71,13 @@ namespace SudokuClient
         {
             if (sender is Button btn && btn.Tag is Point pt)
             {
-                // Unhighlight old
                 if (_selectedRow != -1 && _selectedCol != -1)
                 {
-                    _cells[_selectedRow, _selectedCol].BackColor = _cells[_selectedRow, _selectedCol].ForeColor == Color.Black ? Color.White : Color.LightYellow;
+                    var oldBtn = _cells[_selectedRow, _selectedCol];
+                    if (oldBtn.BackColor == Color.LightBlue)
+                    {
+                        oldBtn.BackColor = oldBtn.Enabled ? Color.White : Color.LightGreen;
+                    }
                 }
 
                 _selectedRow = pt.X;
@@ -87,12 +90,12 @@ namespace SudokuClient
         private async void Cell_KeyPress(object? sender, KeyPressEventArgs e)
         {
             if (_selectedRow == -1 || _selectedCol == -1) return;
-            if (_moveCooldown) return; // Cooldown 0.5s chưa hết
-            if (char.IsDigit(e.KeyChar) && e.KeyChar != '0')
-            {
-                int val = int.Parse(e.KeyChar.ToString());
+            if (_moveCooldown) return; 
 
-                // Bắt đầu cooldown 0.5s
+            if (e.KeyChar >= '1' && e.KeyChar <= '9')
+            {
+                int val = e.KeyChar - '0'; 
+
                 _moveCooldown = true;
                 _cooldownTimer.Start();
 
@@ -434,18 +437,24 @@ namespace SudokuClient
             await _network.SendAsync(new NetworkMessage { Type = "CLIENT_START_GAME", Value = cellsToRemove });
         }
 
-        private void btnOffline_Click(object sender, EventArgs e)
+        private async void btnOffline_Click(object sender, EventArgs e)
         {
+            btnOffline.Enabled = false;
+            lblStatus.Text = "Đang khởi tạo ma trận game...";
+
             _isOffline = true;
             _penaltySeconds = 0;
             panelLogin.Visible = false;
             panelLobby.Visible = false;
             panelGame.Visible = true;
             txtChatLog.Clear();
-            txtChatLog.AppendText("Khởi động chế độ chơi đơn...\n");
+            txtChatLog.AppendText("Hệ thống đang sinh ma trận ngầm, vui lòng đợi...\n");
 
             _offlineEngine = new SudokuClient.GameLogic.SudokuEngine();
-            _offlineEngine.GenerateNewGame(42);
+
+            await Task.Run(() => {
+                _offlineEngine.GenerateNewGame(42);
+            });
 
             _gameStartTime = DateTime.Now;
             _gameTimer.Start();
@@ -462,6 +471,7 @@ namespace SudokuClient
                     _cells[r, c].BackColor = Color.White;
                 }
             }
+            btnOffline.Enabled = true;
         }
 
         private async void btnSendChat_Click(object sender, EventArgs e)

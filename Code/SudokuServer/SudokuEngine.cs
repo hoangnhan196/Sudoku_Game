@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace SudokuServer.Game
 {
@@ -8,22 +9,18 @@ namespace SudokuServer.Game
         public int[,] PlayerBoard { get; private set; } = new int[9, 9];
         private static readonly Random _random = new Random();
 
-        public SudokuEngine()
-        {
-            GenerateNewGame(40);
-        }
-
         public void GenerateNewGame(int cellsToRemove)
         {
-            // Reset boards
             SolutionBoard = new int[9, 9];
             PlayerBoard = new int[9, 9];
 
-            // Generate full solved board
+            // 1. Sinh bảng Sudoku đầy đủ nghiệm hợp lệ
             FillBoard(0, 0);
 
-            // Copy to player board and remove cells
+            // 2. Sao chép sang bảng của người chơi để chuẩn bị đục lỗ
             Array.Copy(SolutionBoard, PlayerBoard, SolutionBoard.Length);
+
+            // 3. Tiến hành đục lỗ dựa trên số lượng ô trống yêu cầu
             RemoveCells(cellsToRemove);
         }
 
@@ -33,23 +30,19 @@ namespace SudokuServer.Game
             {
                 col = 0;
                 row++;
-                if (row >= 9)
-                    return true;
+                if (row >= 9) return true;
             }
 
-            // Shuffle numbers 1-9 to make generation random
             var numbers = GetRandomNumbers();
             foreach (var num in numbers)
             {
                 if (IsValid(SolutionBoard, row, col, num))
                 {
                     SolutionBoard[row, col] = num;
-                    if (FillBoard(row, col + 1))
-                        return true;
+                    if (FillBoard(row, col + 1)) return true;
                     SolutionBoard[row, col] = 0;
                 }
             }
-
             return false;
         }
 
@@ -66,26 +59,23 @@ namespace SudokuServer.Game
             return nums;
         }
 
-        private bool IsValid(int[,] board, int row, int col, int num)
+        public bool IsValid(int[,] board, int row, int col, int num)
         {
-            // Check row
             for (int x = 0; x < 9; x++)
-                if (board[row, x] == num)
-                    return false;
+            {
+                if (board[row, x] == num) return false;
+                if (board[x, col] == num) return false;
+            }
 
-            // Check col
-            for (int x = 0; x < 9; x++)
-                if (board[x, col] == num)
-                    return false;
-
-            // Check 3x3 box
             int startRow = row - row % 3;
             int startCol = col - col % 3;
             for (int i = 0; i < 3; i++)
+            {
                 for (int j = 0; j < 3; j++)
-                    if (board[i + startRow, j + startCol] == num)
-                        return false;
-
+                {
+                    if (board[i + startRow, j + startCol] == num) return false;
+                }
+            }
             return true;
         }
 
@@ -93,10 +83,11 @@ namespace SudokuServer.Game
         {
             if (count > 81) count = 81;
 
-            int[] positions = new int[81];
-            for (int i = 0; i < 81; i++) positions[i] = i;
-
-            for (int i = 80; i > 0; i--)
+            // Trộn ngẫu nhiên 81 vị trí trên ma trận bằng Fisher-Yates để đảm bảo đề ra ngẫu nhiên dữ liệu
+            List<int> positions = new List<int>(81);
+            for (int i = 0; i < 81; i++) positions.Add(i);
+            
+            for (int i = positions.Count - 1; i > 0; i--)
             {
                 int j = _random.Next(i + 1);
                 int temp = positions[i];
@@ -110,16 +101,17 @@ namespace SudokuServer.Game
                 int pos = positions[i];
                 int r = pos / 9;
                 int c = pos % 9;
-                
+
                 int backup = PlayerBoard[r, c];
                 PlayerBoard[r, c] = 0;
 
                 int solutions = 0;
-                CountSolutions(PlayerBoard, 0, 0, ref solutions);
+                // Sử dụng bộ giải thông minh MRV để đếm số lượng nghiệm
+                CountSolutionsMRV(PlayerBoard, ref solutions);
 
                 if (solutions != 1)
                 {
-                    // Restore cell if removing it breaks uniqueness
+                    // Nếu làm mất tính duy nhất của nghiệm (vô nghiệm hoặc đa nghiệm) -> Phục hồi ô số
                     PlayerBoard[r, c] = backup;
                 }
                 else
@@ -129,62 +121,77 @@ namespace SudokuServer.Game
             }
         }
 
-        private void CountSolutions(int[,] board, int row, int col, ref int count)
+        private bool CountSolutionsMRV(int[,] board, ref int count)
         {
-            if (count > 1) return; // Stop early if more than 1 solution
+            if (count > 1) return true; // Dừng sớm nếu phát hiện ma trận đa nghiệm
 
-            if (col >= 9)
-            {
-                col = 0;
-                row++;
-                if (row >= 9)
-                {
-                    count++;
-                    return;
-                }
-            }
+            int minCandidates = 10;
+            int bestRow = -1;
+            int bestCol = -1;
+            List<int> bestCandidates = null;
 
-            if (board[row, col] != 0)
-            {
-                CountSolutions(board, row, col + 1, ref count);
-                return;
-            }
-
-            for (int num = 1; num <= 9; num++)
-            {
-                if (IsValid(board, row, col, num))
-                {
-                    board[row, col] = num;
-                    CountSolutions(board, row, col + 1, ref count);
-                    board[row, col] = 0;
-                }
-            }
-        }
-
-        public bool CheckMove(int row, int col, int value)
-        {
-            if (row < 0 || row >= 9 || col < 0 || col >= 9) return false;
-            return SolutionBoard[row, col] == value;
-        }
-
-        public void ApplyMove(int row, int col, int value)
-        {
-            if (row >= 0 && row < 9 && col >= 0 && col < 9)
-            {
-                PlayerBoard[row, col] = value;
-            }
-        }
-
-        public bool IsGameFinished()
-        {
+            // Tìm ô trống có ít số khả dĩ hợp lệ nhất để tối ưu nhánh đệ quy
             for (int r = 0; r < 9; r++)
             {
                 for (int c = 0; c < 9; c++)
                 {
-                    if (PlayerBoard[r, c] != SolutionBoard[r, c])
-                        return false;
+                    if (board[r, c] == 0)
+                    {
+                        var candidates = GetCandidates(board, r, c);
+                        int cc = candidates.Count;
+
+                        if (cc == 0) return false; // Nhánh cụt không có lời giải
+
+                        if (cc < minCandidates)
+                        {
+                            minCandidates = cc;
+                            bestRow = r;
+                            bestCol = c;
+                            bestCandidates = candidates;
+                        }
+                    }
                 }
             }
+
+            if (bestRow == -1)
+            {
+                count++;
+                return count > 1;
+            }
+
+            foreach (int num in bestCandidates)
+            {
+                board[bestRow, bestCol] = num;
+                if (CountSolutionsMRV(board, ref count))
+                {
+                    board[bestRow, bestCol] = 0;
+                    return true;
+                }
+                board[bestRow, bestCol] = 0;
+            }
+
+            return false;
+        }
+
+        private List<int> GetCandidates(int[,] board, int row, int col)
+        {
+            List<int> candidates = new List<int>();
+            for (int num = 1; num <= 9; num++)
+            {
+                if (IsValid(board, row, col, num)) candidates.Add(num);
+            }
+            return candidates;
+        }
+
+        public bool CheckMove(int row, int col, int value) => SolutionBoard[row, col] == value;
+
+        public void ApplyMove(int row, int col, int value) => PlayerBoard[row, col] = value;
+
+        public bool IsGameFinished()
+        {
+            for (int r = 0; r < 9; r++)
+                for (int c = 0; c < 9; c++)
+                    if (PlayerBoard[r, c] != SolutionBoard[r, c]) return false;
             return true;
         }
     }
