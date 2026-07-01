@@ -35,9 +35,9 @@ namespace SudokuServer
             int port = 0;
             if (!string.IsNullOrWhiteSpace(txtPort.Text))
             {
-                if (!int.TryParse(txtPort.Text, out port) || port < 0 || port > 99999)
+                if (!int.TryParse(txtPort.Text, out port) || port < 0 || port > 65535)
                 {
-                    MessageBox.Show("Please enter a valid port number (0-99999) or leave it empty for automatic assignment.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show("Please enter a valid port number (0-65535) or leave it empty for automatic assignment.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
             }
